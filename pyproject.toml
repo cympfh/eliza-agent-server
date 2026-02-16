@@ -1,0 +1,13 @@
+[project]
+name = "eliza-agent-server"
+version = "0.1.0"
+description = "FastAPI server for Grok API with x_search, web_search, and Switchbot tools"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "pydantic>=2.10.0",
+    "xai-sdk>=0.1.0",
+    "requests>=2.32.0",
+]
