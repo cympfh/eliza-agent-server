@@ -10,6 +10,7 @@ from typing import Any
 
 import requests
 from xai_sdk.chat import tool
+from xai_sdk.proto import chat_pb2
 
 
 class Switchbot:
@@ -144,12 +145,12 @@ class Switchbot:
             self.send_command(device_id, command)
         return {"status": "Accepted", "result": "All lights on"}
 
-    def create_tools(self) -> list:
+    def create_tools(self) -> list[chat_pb2.Tool]:
         """Grok agent 用のツール定義を作成"""
 
         return [
             tool(
-                name="get_room_temperature",
+                name="switchbot_get_room_temperature",
                 description="部屋の温度と湿度を取得します。室内の現在の気温と湿度を確認したいときに使います。",
                 parameters={
                     "type": "object",
@@ -158,7 +159,7 @@ class Switchbot:
                 },
             ),
             tool(
-                name="get_outside_temperature",
+                name="switchbot_get_outside_temperature",
                 description="家のすぐ外の温度と湿度を取得します。外の気温や湿度を確認したいときに使います。",
                 parameters={
                     "type": "object",
@@ -167,7 +168,7 @@ class Switchbot:
                 },
             ),
             tool(
-                name="post_aircon_off",
+                name="switchbot_post_aircon_off",
                 description="エアコンを消します。部屋が暑すぎる、寒すぎる、または外出するときなどに使います。",
                 parameters={
                     "type": "object",
@@ -176,7 +177,7 @@ class Switchbot:
                 },
             ),
             tool(
-                name="post_aircon_on",
+                name="switchbot_post_aircon_on",
                 description="エアコンをつけます。暖房モードで26度に設定されます。部屋が寒いときや帰宅時に使います。",
                 parameters={
                     "type": "object",
@@ -185,7 +186,7 @@ class Switchbot:
                 },
             ),
             tool(
-                name="post_light_off",
+                name="switchbot_post_light_off",
                 description="家の中の全てのライトを消します。寝る前や外出するときに使います。",
                 parameters={
                     "type": "object",
@@ -194,7 +195,7 @@ class Switchbot:
                 },
             ),
             tool(
-                name="post_light_on",
+                name="switchbot_post_light_on",
                 description="家の中の全てのライトをつけます。朝起きたときや帰宅したときに使います。",
                 parameters={
                     "type": "object",
@@ -203,3 +204,21 @@ class Switchbot:
                 },
             ),
         ]
+
+    def call(self, tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
+        """Call a switchbot tool by name"""
+        match tool_name:
+            case "switchbot_get_room_temperature":
+                return self.get_room_temperature()
+            case "switchbot_get_outside_temperature":
+                return self.get_outside_temperature()
+            case "switchbot_post_aircon_off":
+                return self.post_aircon_off()
+            case "switchbot_post_aircon_on":
+                return self.post_aircon_on()
+            case "switchbot_post_light_off":
+                return self.post_light_off()
+            case "switchbot_post_light_on":
+                return self.post_light_on()
+            case _:
+                raise ValueError(f"Unknown tool: {tool_name}")

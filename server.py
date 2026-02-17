@@ -6,9 +6,9 @@ from datetime import datetime
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from xai_sdk import Client, chat, tools
+from xai_sdk import Client, chat
 
-from tools.switchbot import Switchbot
+import eliza.tools
 
 # ロギングの設定
 logging.basicConfig(
@@ -81,20 +81,8 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         logger.info(f"[REQUEST ID: {request_id}] Creating Grok client...")
         client = Client(api_key=XAI_API_KEY)
 
-        # ツール一覧を作成
-        available_tools = [tools.x_search(), tools.web_search(), tools.code_execution()]
-
-        # Switchbot ツールを追加（環境変数が設定されている場合のみ）
-        if SWITCHBOT_API_TOKEN and SWITCHBOT_API_SECRET:
-            logger.info(f"[REQUEST ID: {request_id}] Adding Switchbot tools...")
-            try:
-                switchbot = Switchbot()
-                available_tools.extend(switchbot.create_tools())
-            except Exception as e:
-                logger.error(f"Failed to create Switchbot tools: {e}")
-                raise
-
         # tools を有効化してチャットセッション作成
+        available_tools = eliza.tools.create_tools()
         logger.info(
             f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
         )
@@ -131,23 +119,9 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
                     logger.info(
                         f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
                     )
-                    match tool_name:
-                        case "get_room_temperature":
-                            result = json.dumps(switchbot.get_room_temperature())
-                        case "get_outside_temperature":
-                            result = json.dumps(switchbot.get_outside_temperature())
-                        case "post_aircon_off":
-                            result = json.dumps(switchbot.post_aircon_off())
-                        case "post_aircon_on":
-                            result = json.dumps(switchbot.post_aircon_on())
-                        case "post_light_off":
-                            result = json.dumps(switchbot.post_light_off())
-                        case "post_light_on":
-                            result = json.dumps(switchbot.post_light_on())
-                        case _:
-                            result = "Error: Unknown tool"
-
-                    session.append(chat.tool_result(result))
+                    result = eliza.tools.call(tool_name, tool_args)
+                    if result:
+                        session.append(chat.tool_result(json.dumps(result)))
                 session.append(chat.system("ツール呼び出しの結果は上記の通りです。"))
             else:
                 break
@@ -180,19 +154,12 @@ async def health_check() -> dict[str, str]:
 @app.get("/tools")
 async def list_tools() -> dict[str, list[str]]:
     """利用可能なツール一覧を返す"""
-    tool_list = ["x_search", "web_search", "code_execution"]
-    if SWITCHBOT_API_TOKEN and SWITCHBOT_API_SECRET:
-        tool_list.extend(
-            [
-                "get_room_temperature",
-                "get_outside_temperature",
-                "post_aircon_off",
-                "post_aircon_on",
-                "post_light_off",
-                "post_light_on",
-            ]
-        )
-    return {"tools": tool_list}
+    available_tools = eliza.tools.create_tools()
+    tool_names = [
+        tool.function.name if tool.function.name else str(tool).split()[0]
+        for tool in available_tools
+    ]
+    return {"tools": tool_names}
 
 
 def main():
