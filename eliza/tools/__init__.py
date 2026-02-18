@@ -6,7 +6,10 @@ from xai_sdk import tools
 from xai_sdk.proto import chat_pb2
 
 from .alarm import Alarm
+from .clipboard import Clipboard
 from .switchbot import Switchbot
+from .tenki import Tenki
+from .youtube import YouTubeSearch
 
 
 def create_tools() -> list[chat_pb2.Tool]:
@@ -18,6 +21,12 @@ def create_tools() -> list[chat_pb2.Tool]:
     except Exception as e:
         print(f"Failed to create Switchbot tools: {e}")
     available_tools.extend(Alarm().create_tools())
+    available_tools.extend(Tenki().create_tools())
+    try:
+        available_tools.extend(YouTubeSearch().create_tools())
+    except Exception as e:
+        print(f"Failed to create YouTubeSearch tools: {e}")
+    available_tools.extend(Clipboard().create_tools())
     return available_tools
 
 
@@ -29,8 +38,14 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return switchbot.call(tool_name, tool_args)
         case _ if tool_name.startswith("alarm_"):
             return Alarm().call(tool_name, tool_args)
+        case _ if tool_name.startswith("tenki_"):
+            return Tenki().call(tool_name, tool_args)
+        case _ if tool_name.startswith("youtube_"):
+            return YouTubeSearch().call(tool_name, tool_args)
+        case _ if tool_name.startswith("clipboard_"):
+            return Clipboard().call(tool_name, tool_args)
         case _:
             return None
 
 
-__all__ = ["Alarm", "Switchbot", "create_tools", "call"]
+__all__ = ["Alarm", "Clipboard", "Switchbot", "Tenki", "YouTubeSearch", "create_tools", "call"]
