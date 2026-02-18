@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from datetime import datetime
 
@@ -32,6 +33,35 @@ def get() -> str | None:
         return None
     with open(SUMMARY_FILE, encoding="utf-8") as f:
         return f.read()
+
+
+def grep(pattern: str, limit: int = 10) -> list[dict]:
+    """
+    logs.jsonl を末尾から正規表現で検索し、マッチした行（dict）を最大 limit 件返す。
+    結果は新しい順（ファイル末尾が先頭）。
+    """
+    if not os.path.exists(LOGS_FILE):
+        return []
+
+    compiled = re.compile(pattern)
+    matched: list[dict] = []
+
+    with open(LOGS_FILE, encoding="utf-8") as f:
+        lines = f.readlines()
+
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        if compiled.search(line):
+            try:
+                matched.append(json.loads(line))
+            except json.JSONDecodeError:
+                matched.append({"raw": line})
+        if len(matched) >= limit:
+            break
+
+    return matched
 
 
 def append(request) -> dict:

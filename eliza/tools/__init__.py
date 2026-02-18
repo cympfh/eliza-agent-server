@@ -7,6 +7,7 @@ from xai_sdk.proto import chat_pb2
 
 from .alarm import Alarm
 from .clipboard import Clipboard
+from .memory import MemoryTool
 from .switchbot import Switchbot
 from .tenki import Tenki
 from .youtube import YouTubeSearch
@@ -27,6 +28,7 @@ def create_tools() -> list[chat_pb2.Tool]:
     except Exception as e:
         print(f"Failed to create YouTubeSearch tools: {e}")
     available_tools.extend(Clipboard().create_tools())
+    available_tools.extend(MemoryTool().create_tools())
     return available_tools
 
 
@@ -44,8 +46,10 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return YouTubeSearch().call(tool_name, tool_args)
         case _ if tool_name.startswith("clipboard_"):
             return Clipboard().call(tool_name, tool_args)
+        case _ if tool_name.startswith("memory_"):
+            return MemoryTool().call(tool_name, tool_args)
         case _:
             return None
 
 
-__all__ = ["Alarm", "Clipboard", "Switchbot", "Tenki", "YouTubeSearch", "create_tools", "call"]
+__all__ = ["Alarm", "Clipboard", "MemoryTool", "Switchbot", "Tenki", "YouTubeSearch", "create_tools", "call"]
