@@ -242,7 +242,7 @@ async def list_tools() -> dict[str, list[str]]:
 
 def main():
     """サーバーを起動"""
-    uvicorn.run(app, host="0.0.0.0", port=9096)
+    uvicorn.run("server:app", host="0.0.0.0", port=9096, workers=4)
 
 
 if __name__ == "__main__":
