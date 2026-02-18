@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from xai_sdk import Client, chat
 
+import eliza.memory
 import eliza.tools
 
 # ロギングの設定
@@ -39,10 +40,22 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[Message]
     model: str = "grok-4-1-fast"
+    use_memory: bool = True
 
 
 class ChatResponse(BaseModel):
     message: Message
+
+
+class MemoryRequest(BaseModel):
+    messages: list[Message]
+    model: str = "grok-4-1-fast"
+
+
+class MemoryResponse(BaseModel):
+    summary: str
+    feedback: str
+    summary_all: str
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -93,9 +106,32 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
 
         # 会話履歴を追加
         logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")
+
+        # memory summary を system メッセージとして差し込む
+        def _inject_memory_summary():
+            if request.use_memory:
+                summary = eliza.memory.get()
+                if summary:
+                    logger.info(
+                        f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
+                    )
+                    session.append(
+                        chat.system(
+                            f"以下はユーザーとの過去の会話の要約です:\n{summary}"
+                        )
+                    )
+
+        injected = False
+        if request.messages[0].role != "system":
+            _inject_memory_summary()
+            injected = True
+
         for msg in request.messages:
             if msg.role == "system":
                 session.append(chat.system(msg.content))
+                if not injected:
+                    _inject_memory_summary()
+                    injected = True
             elif msg.role == "user":
                 session.append(chat.user(msg.content))
             elif msg.role == "assistant":
@@ -142,6 +178,45 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
 
         return ChatResponse(message=Message(role="assistant", content=response.content))
 
+    except Exception as e:
+        logger.error(f"[REQUEST ID: {request_id}] Error occurred: {str(e)}")
+        logger.error("=" * 80)
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+@app.post("/memory", response_model=MemoryResponse)
+async def memory_endpoint(request: MemoryRequest) -> MemoryResponse:
+    """
+    会話履歴をメモリに記録し、要約を返します。
+    """
+    request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+
+    logger.info("=" * 80)
+    logger.info(f"[REQUEST ID: {request_id}] POST /memory")
+    logger.info("-" * 80)
+    logger.info(f"[REQUEST] Model: {request.model}")
+    logger.info(f"[REQUEST] Number of messages: {len(request.messages)}")
+    for i, msg in enumerate(request.messages):
+        logger.info(
+            f"  Message[{i}]: role={msg.role}, content={msg.content[:200]}{'...' if len(msg.content) > 200 else ''}"
+        )
+    logger.info("-" * 80)
+
+    if not request.messages:
+        logger.warning(f"[REQUEST ID: {request_id}] messages is empty. Returning 400.")
+        raise HTTPException(status_code=400, detail="messages must not be empty")
+
+    try:
+        logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
+        result = eliza.memory.append(request)
+        logger.info(f"[REQUEST ID: {request_id}] Done.")
+        logger.info(f"[RESPONSE] summary: {result['summary']}")
+        logger.info(f"[RESPONSE] feedback: {result['feedback']}")
+        logger.info(
+            f"[RESPONSE] summary_all: {result['summary_all'][:300]}{'...' if len(result['summary_all']) > 300 else ''}"
+        )
+        logger.info("=" * 80)
+        return MemoryResponse(**result)
     except Exception as e:
         logger.error(f"[REQUEST ID: {request_id}] Error occurred: {str(e)}")
         logger.error("=" * 80)

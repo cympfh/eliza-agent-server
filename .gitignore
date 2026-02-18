@@ -1,4 +1,6 @@
 .claude/
+.memory/logs.jsonl
+.memory/summary.txt
 
 # Python
 __pycache__/
