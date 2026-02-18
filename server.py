@@ -105,6 +105,7 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         while True:
             logger.info(f"[REQUEST ID: {request_id}] Generating response...")
             response = session.sample()
+            tool_used = False
             if response.tool_calls:
                 logger.info(
                     f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}"
@@ -121,7 +122,9 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
                     )
                     result = eliza.tools.call(tool_name, tool_args)
                     if result:
+                        tool_used = True
                         session.append(chat.tool_result(json.dumps(result)))
+            if tool_used:
                 session.append(chat.system("ツール呼び出しの結果は上記の通りです。"))
             else:
                 break
