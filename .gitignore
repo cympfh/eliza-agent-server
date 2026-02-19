@@ -1,6 +1,6 @@
 .claude/
 .memory/logs.jsonl
-.memory/summary.txt
+.memory/summary.*
 
 # Python
 __pycache__/
