@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 from xai_sdk import Client, chat
 
@@ -52,14 +52,14 @@ class MemoryRequest(BaseModel):
     model: str = "grok-4-1-fast"
 
 
-class MemoryResponse(BaseModel):
-    summary: str
-    feedback: str
-    summary_all: dict
+class MemoryAcceptedResponse(BaseModel):
+    status: str
+    message: str
+    request_id: str
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest) -> ChatResponse:
+async def post_chat(request: ChatRequest) -> ChatResponse:
     """
     会話履歴を受け取り、次の返答を生成します。
     サーバーは状態を持たず、毎回の呼び出しで完全な会話履歴を受け取ります。
@@ -185,10 +185,42 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
-@app.post("/memory", response_model=MemoryResponse)
-async def memory_endpoint(request: MemoryRequest) -> MemoryResponse:
+def _process_memory_in_background(request: MemoryRequest, request_id: str):
     """
-    会話履歴をメモリに記録し、要約を返します。
+    バックグラウンドでメモリ処理を実行する関数
+    """
+    try:
+        if not request.messages:
+            logger.info(
+                f"[REQUEST ID: {request_id}] messages is empty. Skipping log append, refreshing summary only."
+            )
+            summary_all = eliza.memory.refresh_summary(model=request.model)
+            result = {"summary": "", "feedback": "", "summary_all": summary_all}
+        else:
+            logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
+            result = eliza.memory.append(request)
+        logger.info(f"[REQUEST ID: {request_id}] Done.")
+        logger.info(f"[MEMORY] summary: {result['summary']}")
+        logger.info(f"[MEMORY] feedback: {result['feedback']}")
+        summary_all_str = json.dumps(result["summary_all"], ensure_ascii=False)
+        logger.info(
+            f"[MEMORY] summary_all: {summary_all_str[:1000]}{'...' if len(summary_all_str) > 1000 else ''}"
+        )
+        logger.info("=" * 80)
+    except Exception as e:
+        logger.error(
+            f"[REQUEST ID: {request_id}] Error occurred in background task: {str(e)}"
+        )
+        logger.error("=" * 80)
+
+
+@app.post("/memory", status_code=202, response_model=MemoryAcceptedResponse)
+async def post_memory(
+    request: MemoryRequest, background_tasks: BackgroundTasks
+) -> MemoryAcceptedResponse:
+    """
+    会話履歴をメモリに記録します。
+    処理はバックグラウンドで実行され、即座に 202 Accepted を返します。
     """
     request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
 
@@ -203,37 +235,26 @@ async def memory_endpoint(request: MemoryRequest) -> MemoryResponse:
         )
     logger.info("-" * 80)
 
-    try:
-        if not request.messages:
-            logger.info(f"[REQUEST ID: {request_id}] messages is empty. Skipping log append, refreshing summary only.")
-            summary_all = eliza.memory.refresh_summary(model=request.model)
-            result = {"summary": "", "feedback": "", "summary_all": summary_all}
-        else:
-            logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
-            result = eliza.memory.append(request)
-        logger.info(f"[REQUEST ID: {request_id}] Done.")
-        logger.info(f"[RESPONSE] summary: {result['summary']}")
-        logger.info(f"[RESPONSE] feedback: {result['feedback']}")
-        summary_all_str = json.dumps(result['summary_all'], ensure_ascii=False)
-        logger.info(
-            f"[RESPONSE] summary_all: {summary_all_str[:1000]}{'...' if len(summary_all_str) > 1000 else ''}"
-        )
-        logger.info("=" * 80)
-        return MemoryResponse(**result)
-    except Exception as e:
-        logger.error(f"[REQUEST ID: {request_id}] Error occurred: {str(e)}")
-        logger.error("=" * 80)
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    # バックグラウンドタスクに追加
+    background_tasks.add_task(_process_memory_in_background, request, request_id)
+
+    logger.info(f"[REQUEST ID: {request_id}] Accepted. Processing in background.")
+
+    return MemoryAcceptedResponse(
+        status="accepted",
+        message="Memory processing started in background",
+        request_id=request_id,
+    )
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
+async def get_health() -> dict[str, str]:
     """ヘルスチェックエンドポイント"""
     return {"status": "ok"}
 
 
 @app.get("/tools")
-async def list_tools() -> dict[str, list[str]]:
+async def get_tools() -> dict[str, list[str]]:
     """利用可能なツール一覧を返す"""
     available_tools = eliza.tools.create_tools()
     tool_names = [
