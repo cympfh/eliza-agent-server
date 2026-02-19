@@ -102,10 +102,10 @@ class YouTubeSearch:
                 name="youtube_search",
                 description=(
                     "YouTube で動画を検索します。"
-                    "「ボカロ曲を流して」「猫の動画を探して」「〇〇のMVを見たい」などの"
-                    "動画検索リクエストに使います。"
+                    "「おさだの最新動画探して」「〇〇のMVを見たい」などの動画検索リクエストに使います。"
                     " keyword は検索したいキーワードを指定してください。"
                     " 結果としてタイトル・URL・チャンネル名・投稿日を返します。"
+                    "Hint: 実際に「開いて」と指示されたら、browser_url_open という別なツールでURLをブラウザで開くことができます。"
                 ),
                 parameters={
                     "type": "object",
