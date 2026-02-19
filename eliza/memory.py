@@ -10,7 +10,7 @@ from xai_sdk import Client, chat
 
 MEMORY_DIR = ".memory"
 LOGS_FILE = f"{MEMORY_DIR}/logs.jsonl"
-SUMMARY_FILE = f"{MEMORY_DIR}/summary.txt"
+SUMMARY_FILE = f"{MEMORY_DIR}/summary.json"
 
 XAI_API_KEY = os.environ.get("XAI_API_KEY")
 
@@ -27,12 +27,15 @@ def _call_grok(
     return response.content
 
 
-def get() -> str | None:
-    """summary.txt の中身を返す。ファイルが存在しない場合は None を返す。"""
+def get() -> dict | None:
+    """summary.json の中身を dict で返す。ファイルが存在しない場合は None を返す。"""
     if not os.path.exists(SUMMARY_FILE):
         return None
     with open(SUMMARY_FILE, encoding="utf-8") as f:
-        return f.read()
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return None
 
 
 def grep(pattern: str, limit: int = 10) -> list[dict]:
@@ -107,31 +110,58 @@ def append(request) -> dict:
     with open(LOGS_FILE, "a", encoding="utf-8") as f:
         f.write(log_entry + "\n")
 
-    # Step 2: 直近100件のログを読んで summary.txt を更新
+    # Step 2: summary.json を更新
+    summary_all = refresh_summary(model=request.model)
+
+    return {"summary": summary, "feedback": feedback, "summary_all": summary_all}
+
+
+def refresh_summary(model: str) -> dict:
+    """
+    直近100件のログから summary.json を再生成して返す。
+    logs.jsonl が存在しない・空の場合は空 dict を返す。
+    """
+    if not os.path.exists(LOGS_FILE):
+        return {}
+
     result = subprocess.run(
         ["tail", "-n", "100", LOGS_FILE],
         capture_output=True,
         text=True,
     )
     recent_logs = result.stdout.strip()
-    last_summary = get()
+    if not recent_logs:
+        return {}
 
-    summary_all = ""
-    if recent_logs:
-        system_prompt_summary = f"""
+    last_summary = get()
+    last_summary_str = json.dumps(last_summary, ensure_ascii=False) if last_summary else "(なし)"
+
+    system_prompt_summary = f"""
 これは過去にユーザーとあなたが交わした会話のログです。
-ユーザーはあなたに対して様々な質問をしてきました。
-これらのログを 2000 文字程度に圧縮してください。
-この目的は、過去の会話の内容を把握して、あなたがユーザーの好みや傾向を理解するためです。
+今後の会話に役立つ情報だけを取捨選択し、以下のJSON形式で出力してください。JSONのみを出力し、余計な説明・コードブロックは不要です。
+
+{{
+  "recent_conversation": "直近の会話で何をしたかの短い説明",
+  "user_preferences": {{
+    "hobbies": ["趣味や関心事のリスト"],
+    "conversation_style": "ユーザーの会話スタイルの特徴",
+    "(anything as you like)": "ユーザーの好みや傾向についての洞察を自由に追加"
+  }}
+}}
+
+この目的は、過去の会話の内容を把握して、次回以降の会話でユーザーの好みや傾向を活用するためです。
 ---
 事前情報: 直近の要約は以下の通りです:
-{last_summary if last_summary else "(なし)"}
+{last_summary_str}
 """
-        summary_all = _call_grok(
-            system_prompt_summary, recent_logs, model=request.model
-        )
+    raw = _call_grok(system_prompt_summary, recent_logs, model=model)
+    try:
+        summary_all = json.loads(raw)
+    except json.JSONDecodeError:
+        summary_all = {"recent_conversation": raw[:500], "user_preferences": {}}
 
-        with open(SUMMARY_FILE, "w", encoding="utf-8") as f:
-            f.write(summary_all)
+    os.makedirs(MEMORY_DIR, exist_ok=True)
+    with open(SUMMARY_FILE, "w", encoding="utf-8") as f:
+        json.dump(summary_all, f, ensure_ascii=False, indent=2)
 
-    return {"summary": summary, "feedback": feedback, "summary_all": summary_all}
+    return summary_all

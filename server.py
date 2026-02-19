@@ -55,7 +55,7 @@ class MemoryRequest(BaseModel):
 class MemoryResponse(BaseModel):
     summary: str
     feedback: str
-    summary_all: str
+    summary_all: dict
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -115,9 +115,10 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
                     logger.info(
                         f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
                     )
+                    summary_str = json.dumps(summary, ensure_ascii=False, indent=2)
                     session.append(
                         chat.system(
-                            f"以下はユーザーとの過去の会話の要約です:\n{summary}"
+                            f"以下はユーザーとの過去の会話の要約です:\n{summary_str}"
                         )
                     )
 
@@ -202,18 +203,20 @@ async def memory_endpoint(request: MemoryRequest) -> MemoryResponse:
         )
     logger.info("-" * 80)
 
-    if not request.messages:
-        logger.warning(f"[REQUEST ID: {request_id}] messages is empty. Returning 400.")
-        raise HTTPException(status_code=400, detail="messages must not be empty")
-
     try:
-        logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
-        result = eliza.memory.append(request)
+        if not request.messages:
+            logger.info(f"[REQUEST ID: {request_id}] messages is empty. Skipping log append, refreshing summary only.")
+            summary_all = eliza.memory.refresh_summary(model=request.model)
+            result = {"summary": "", "feedback": "", "summary_all": summary_all}
+        else:
+            logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
+            result = eliza.memory.append(request)
         logger.info(f"[REQUEST ID: {request_id}] Done.")
         logger.info(f"[RESPONSE] summary: {result['summary']}")
         logger.info(f"[RESPONSE] feedback: {result['feedback']}")
+        summary_all_str = json.dumps(result['summary_all'], ensure_ascii=False)
         logger.info(
-            f"[RESPONSE] summary_all: {result['summary_all'][:300]}{'...' if len(result['summary_all']) > 300 else ''}"
+            f"[RESPONSE] summary_all: {summary_all_str[:1000]}{'...' if len(summary_all_str) > 1000 else ''}"
         )
         logger.info("=" * 80)
         return MemoryResponse(**result)
