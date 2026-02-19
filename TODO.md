@@ -26,3 +26,9 @@ save_memory および memory.get() の2箇所を修正する必要があると�
 
 2. POST /memory で messages が空のとき、今はエラー扱いにしてるが、挙動変更する。 [☑ 2026-02-19]
 空なら logs.jsonl への追加はスキップするが、logs.jsonl から summary.json への更新だけは行うこととする。
+
+3. リファクタ: VIVALDI という定数が何度も登場する
+
+環境変数 `$BROWSER_PATH` という名前でこの値を参照することにする。
+もしこの環境変数が設定されていない場合は、tool は失敗する.
+

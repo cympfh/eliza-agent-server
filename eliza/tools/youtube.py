@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
 from .clipboard import Clipboard
+
+VIVALDI = "/mnt/c/Users/cympf/AppData/Local/Vivaldi/Application/vivaldi.exe"
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 BASE_URL = "https://www.googleapis.com/youtube/v3"
@@ -73,7 +76,7 @@ class YouTubeSearch:
     """YouTube 検索ツール"""
 
     def search(
-        self, keyword: str, limit: int = 5, order: str = "relevance"
+        self, keyword: str, limit: int = 5, order: str = "relevance", browser_open: bool = False
     ) -> dict[str, Any]:
         """YouTube でキーワード検索して動画一覧を返す
 
@@ -81,6 +84,7 @@ class YouTubeSearch:
             keyword: 検索キーワード
             limit: 取得件数 (最大10)
             order: 並び順 (date/rating/relevance/title/videoCount/viewCount)
+            browser_open: True のとき先頭の動画をブラウザで開く
         """
         if not YOUTUBE_API_KEY:
             return {"error": "YOUTUBE_API_KEY is not set"}
@@ -89,11 +93,18 @@ class YouTubeSearch:
         results = _search(keyword, limit, order)
         if results:
             Clipboard().copy(results[0]["url"])
-        return {
+
+        ret: dict[str, Any] = {
             "keyword": keyword,
             "count": len(results),
             "results": results,
         }
+
+        if browser_open and results:
+            subprocess.Popen([VIVALDI, results[0]["url"]])
+            ret["browser_opened"] = results[0]["url"]
+
+        return ret
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """Grok agent 用のツール定義を作成"""
@@ -105,8 +116,7 @@ class YouTubeSearch:
                     "「おさだの最新動画探して」「〇〇のMVを見たい」などの動画検索リクエストに使います。"
                     " keyword は検索したいキーワードを指定してください。"
                     " 結果としてタイトル・URL・チャンネル名・投稿日を返します。"
-                    "重要: ユーザーが「開いて」「見たい」「再生して」などブラウザで開くことを求めている場合は、"
-                    "このツールで検索した後、必ず続けて browser_url_open も呼び出すこと。"
+                    " ユーザーが「開いて」「見たい」「再生して」などブラウザで開くことを求めている場合は browser_open=true を指定してください。"
                 ),
                 parameters={
                     "type": "object",
@@ -131,6 +141,10 @@ class YouTubeSearch:
                             ],
                             "description": "並び順。date=新着順, rating=評価順, relevance=関連度順(デフォルト), title=タイトル順, videoCount=動画数順, viewCount=再生数順",
                         },
+                        "browser_open": {
+                            "type": "boolean",
+                            "description": "true のとき、検索結果の先頭動画をブラウザで開く。ユーザーが「開いて」「見たい」「再生して」と言っている場合は必ず true にすること。",
+                        },
                     },
                     "required": ["keyword"],
                 },
@@ -145,6 +159,7 @@ class YouTubeSearch:
                     keyword=tool_args["keyword"],
                     limit=tool_args.get("limit", 5),
                     order=tool_args.get("order", "relevance"),
+                    browser_open=tool_args.get("browser_open", False),
                 )
             case _:
                 raise ValueError(f"Unknown tool: {tool_name}")
