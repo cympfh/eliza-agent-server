@@ -1,5 +1,6 @@
-"""Alarm tool for Grok agent - opens https://cympfh.cc/alarm/ in Vivaldi"""
+"""Alarm tool for Grok agent - opens https://cympfh.cc/alarm/ in browser"""
 
+import os
 import subprocess
 from datetime import datetime, timedelta
 from typing import Any
@@ -8,7 +9,7 @@ from urllib.parse import urlencode
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
-VIVALDI = "/mnt/c/Users/cympf/AppData/Local/Vivaldi/Application/vivaldi.exe"
+BROWSER_PATH = os.environ.get("BROWSER_PATH")
 ALARM_BASE_URL = "https://cympfh.cc/alarm/"
 
 
@@ -25,9 +26,11 @@ class Alarm:
             sound: アラーム音 (beep/bell/chime/siren/pulse)
             auto_stop: 自動停止秒数 (0以下なら自動停止しない)
         """
+        if not BROWSER_PATH:
+            return {"status": "error", "message": "環境変数 BROWSER_PATH が設定されていません"}
         params = urlencode({"time": time, "sound": sound, "autoStop": auto_stop})
         url = f"{ALARM_BASE_URL}?{params}"
-        subprocess.Popen([VIVALDI, url])
+        subprocess.Popen([BROWSER_PATH, url])
         return {
             "status": "ok",
             "message": f"アラームをセットしました: {time} (sound={sound}, autoStop={auto_stop}s)",

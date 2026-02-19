@@ -54,6 +54,7 @@ export XAI_API_KEY="..."           # Grok API キー (必須)
 export SWITCHBOT_API_TOKEN="..."   # Switchbot トークン
 export SWITCHBOT_API_SECRET="..."  # Switchbot シークレット
 export YOUTUBE_API_KEY="..."       # YouTube Data API キー
+export BROWSER_PATH="..."          # ブラウザの実行ファイルパス (アラーム・YouTube・URL開封に必要)
 ```
 
 ## 起動

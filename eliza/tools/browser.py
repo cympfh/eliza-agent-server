@@ -1,12 +1,13 @@
 """Browser tool - opens a URL in Vivaldi"""
 
+import os
 import subprocess
 from typing import Any
 
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
-VIVALDI = "/mnt/c/Users/cympf/AppData/Local/Vivaldi/Application/vivaldi.exe"
+BROWSER_PATH = os.environ.get("BROWSER_PATH")
 
 
 class Browser:
@@ -18,7 +19,9 @@ class Browser:
         Args:
             url: 開くURL
         """
-        subprocess.Popen([VIVALDI, url])
+        if not BROWSER_PATH:
+            return {"status": "error", "message": "環境変数 BROWSER_PATH が設定されていません"}
+        subprocess.Popen([BROWSER_PATH, url])
         return {
             "status": "ok",
             "message": f"ブラウザでURLを開きました: {url}",

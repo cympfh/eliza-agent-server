@@ -14,7 +14,7 @@ from xai_sdk.proto import chat_pb2
 
 from .clipboard import Clipboard
 
-VIVALDI = "/mnt/c/Users/cympf/AppData/Local/Vivaldi/Application/vivaldi.exe"
+BROWSER_PATH = os.environ.get("BROWSER_PATH")
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 BASE_URL = "https://www.googleapis.com/youtube/v3"
@@ -101,8 +101,11 @@ class YouTubeSearch:
         }
 
         if browser_open and results:
-            subprocess.Popen([VIVALDI, results[0]["url"]])
-            ret["browser_opened"] = results[0]["url"]
+            if not BROWSER_PATH:
+                ret["browser_error"] = "環境変数 BROWSER_PATH が設定されていません"
+            else:
+                subprocess.Popen([BROWSER_PATH, results[0]["url"]])
+                ret["browser_opened"] = results[0]["url"]
 
         return ret
 
