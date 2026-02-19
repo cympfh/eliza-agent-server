@@ -32,8 +32,8 @@ class Browser:
                 name="browser_url_open",
                 description=(
                     "指定したURLをブラウザで開きます。"
-                    "「このURLを開いて」「ブラウザで見たい」などの要求に使います。"
-                    "Hint: 「『名取さな』の最新動画を開いて」→ youtube search を行ってURLを取得した後に、このツールでブラウザを開く。"
+                    "「開いて」「見たい」「再生して」「ブラウザで見せて」などの要求に使います。"
+                    "youtube_search で動画を検索した後、ユーザーが視聴を求めている場合も必ずこのツールで先頭のURLを開くこと。"
                 ),
                 parameters={
                     "type": "object",
