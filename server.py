@@ -45,6 +45,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     message: Message
+    sleep: bool = False
 
 
 class MemoryRequest(BaseModel):
@@ -89,100 +90,127 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
         logger.error(f"[REQUEST ID: {request_id}] messages list cannot be empty")
         raise HTTPException(status_code=400, detail="messages list cannot be empty")
 
-    try:
-        # Grok クライアントの作成
-        logger.info(f"[REQUEST ID: {request_id}] Creating Grok client...")
-        client = Client(api_key=XAI_API_KEY)
+    MAX_RETRIES = 3
+    last_error = None
 
-        # tools を有効化してチャットセッション作成
-        available_tools = eliza.tools.create_tools()
-        logger.info(
-            f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
-        )
-        session = client.chat.create(
-            model=request.model,
-            tools=available_tools,
-        )
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            # Grok クライアントの作成
+            logger.info(
+                f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})"
+            )
+            client = Client(api_key=XAI_API_KEY)
 
-        # 会話履歴を追加
-        logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")
+            # tools を有効化してチャットセッション作成
+            available_tools = eliza.tools.create_tools()
+            logger.info(
+                f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
+            )
+            session = client.chat.create(
+                model=request.model,
+                tools=available_tools,
+            )
 
-        # memory summary を system メッセージとして差し込む
-        def _inject_memory_summary():
-            if request.use_memory:
-                summary = eliza.memory.get()
-                if summary:
-                    logger.info(
-                        f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
-                    )
-                    summary_str = json.dumps(summary, ensure_ascii=False, indent=2)
-                    session.append(
-                        chat.system(
-                            f"以下はユーザーとの過去の会話の要約です:\n{summary_str}"
+            # 会話履歴を追加
+            logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")
+
+            # memory summary を system メッセージとして差し込む
+            def _inject_memory_summary():
+                if request.use_memory:
+                    summary = eliza.memory.get()
+                    if summary:
+                        logger.info(
+                            f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
                         )
-                    )
+                        summary_str = json.dumps(summary, ensure_ascii=False, indent=2)
+                        session.append(
+                            chat.system(
+                                f"以下はユーザーとの過去の会話の要約です:\n{summary_str}"
+                            )
+                        )
 
-        injected = False
-        if request.messages[0].role != "system":
-            _inject_memory_summary()
-            injected = True
+            injected = False
+            if request.messages[0].role != "system":
+                _inject_memory_summary()
+                injected = True
 
-        for msg in request.messages:
-            if msg.role == "system":
-                session.append(chat.system(msg.content))
-                if not injected:
-                    _inject_memory_summary()
-                    injected = True
-            elif msg.role == "user":
-                session.append(chat.user(msg.content))
-            elif msg.role == "assistant":
-                session.append(chat.assistant(msg.content))
+            for msg in request.messages:
+                if msg.role == "system":
+                    session.append(chat.system(msg.content))
+                    if not injected:
+                        _inject_memory_summary()
+                        injected = True
+                elif msg.role == "user":
+                    session.append(chat.user(msg.content))
+                elif msg.role == "assistant":
+                    session.append(chat.assistant(msg.content))
 
-        # レスポンス生成, function calling
-        while True:
-            logger.info(f"[REQUEST ID: {request_id}] Generating response...")
-            response = session.sample()
-            tool_used = False
-            if response.tool_calls:
-                logger.info(
-                    f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}"
+            # sleep 検出のためのシステムメッセージを追加
+            session.append(
+                chat.system(
+                    "ユーザーが寝る、または既に寝ていると判断した場合（例: おやすみ、寝る、などの発言や寝息と推察される内容）、"
+                    "レスポンスの末尾に `[SLEEP]` というマーカーを付けてください。"
                 )
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_args = (
-                        json.loads(tool_call.function.arguments)
-                        if tool_call.function.arguments
-                        else {}
-                    )
+            )
+
+            # レスポンス生成, function calling
+            while True:
+                logger.info(f"[REQUEST ID: {request_id}] Generating response...")
+                response = session.sample()
+                tool_used = False
+                if response.tool_calls:
                     logger.info(
-                        f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
+                        f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}"
                     )
-                    result = eliza.tools.call(tool_name, tool_args)
-                    if result:
-                        tool_used = True
-                        session.append(chat.tool_result(json.dumps(result)))
-            if tool_used:
-                session.append(chat.system("ツール呼び出しの結果は上記の通りです。"))
+                    for tool_call in response.tool_calls:
+                        tool_name = tool_call.function.name
+                        tool_args = (
+                            json.loads(tool_call.function.arguments)
+                            if tool_call.function.arguments
+                            else {}
+                        )
+                        logger.info(
+                            f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
+                        )
+                        result = eliza.tools.call(tool_name, tool_args)
+                        if result:
+                            tool_used = True
+                            session.append(chat.tool_result(json.dumps(result)))
+                if tool_used:
+                    session.append(
+                        chat.system("ツール呼び出しの結果は上記の通りです。")
+                    )
+                else:
+                    break
+
+            # レスポンスの詳細ログ
+            logger.info("-" * 80)
+            logger.info(f"[RESPONSE ID: {request_id}] Success")
+            logger.info("[RESPONSE] Role: assistant")
+            logger.info(f"[RESPONSE] Content length: {len(response.content)} chars")
+            logger.info("[RESPONSE] Content:")
+            logger.info(
+                f"  {response.content[:500]}{'...' if len(response.content) > 500 else ''}"
+            )
+            logger.info("=" * 80)
+
+            sleep = "[SLEEP]" in response.content
+            return ChatResponse(
+                message=Message(role="assistant", content=response.content),
+                sleep=sleep,
+            )
+
+        except Exception as e:
+            last_error = e
+            logger.error(
+                f"[REQUEST ID: {request_id}] Error occurred (attempt {attempt}/{MAX_RETRIES}): {str(e)}"
+            )
+            if attempt < MAX_RETRIES:
+                logger.info(f"[REQUEST ID: {request_id}] Retrying...")
             else:
-                break
+                logger.error("=" * 80)
 
-        # レスポンスの詳細ログ
-        logger.info("-" * 80)
-        logger.info(f"[RESPONSE ID: {request_id}] Success")
-        logger.info("[RESPONSE] Role: assistant")
-        logger.info(f"[RESPONSE] Content length: {len(response.content)} chars")
-        logger.info("[RESPONSE] Content:")
-        logger.info(
-            f"  {response.content[:500]}{'...' if len(response.content) > 500 else ''}"
-        )
-        logger.info("=" * 80)
-
-        return ChatResponse(message=Message(role="assistant", content=response.content))
-
-    except Exception as e:
-        logger.error(f"[REQUEST ID: {request_id}] Error occurred: {str(e)}")
-        logger.error("=" * 80)
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    raise HTTPException(status_code=500, detail=f"Error: {str(last_error)}")
 
 
 def _process_memory_in_background(request: MemoryRequest, request_id: str):
@@ -195,12 +223,13 @@ def _process_memory_in_background(request: MemoryRequest, request_id: str):
                 f"[REQUEST ID: {request_id}] messages is empty. Skipping log append, refreshing summary only."
             )
             summary_all = eliza.memory.refresh_summary(model=request.model)
-            result = {"summary": "", "feedback": "", "summary_all": summary_all}
+            result = {"summary": "", "important_facts": [], "feedback": "", "summary_all": summary_all}
         else:
             logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
             result = eliza.memory.append(request)
         logger.info(f"[REQUEST ID: {request_id}] Done.")
         logger.info(f"[MEMORY] summary: {result['summary']}")
+        logger.info(f"[MEMORY] important_facts: {result['important_facts']}")
         logger.info(f"[MEMORY] feedback: {result['feedback']}")
         summary_all_str = json.dumps(result["summary_all"], ensure_ascii=False)
         logger.info(
@@ -266,7 +295,7 @@ async def get_tools() -> dict[str, list[str]]:
 
 def main():
     """サーバーを起動"""
-    uvicorn.run("server:app", host="0.0.0.0", port=9096, workers=4)
+    uvicorn.run("server:app", host="0.0.0.0", port=9096, workers=4, reload=True)
 
 
 if __name__ == "__main__":

@@ -83,7 +83,7 @@ def append(request) -> dict:
     now = datetime.now().isoformat(timespec="seconds")
     system_prompt_compress = (
         "与えられた会話メッセージを分析して、以下のJSON形式で1行に要約してください。"
-        'フォーマット: {"summary": "何をしたかの短い説明", "feedback": "ユーザーの好みや傾向についての洞察"}'
+        'フォーマット: {"summary": "何を話したかの短い説明(200文字目安)", "important_facts": ["会話から読み取れる重要な事実のリスト(各50文字目安)"], "feedback": "ユーザーの好みや傾向についての洞察(200文字目安)"}'
         "JSONのみを出力し、余計な説明は不要です。"
     )
     user_message_compress = "\n".join(
@@ -98,13 +98,15 @@ def append(request) -> dict:
     try:
         parsed = json.loads(compressed)
         summary = parsed.get("summary", "")
+        important_facts = parsed.get("important_facts", [])
         feedback = parsed.get("feedback", "")
     except json.JSONDecodeError:
         summary = compressed[:200]
+        important_facts = []
         feedback = ""
 
     log_entry = json.dumps(
-        {"datetime": now, "summary": summary, "feedback": feedback},
+        {"datetime": now, "summary": summary, "important_facts": important_facts, "feedback": feedback},
         ensure_ascii=False,
     )
     with open(LOGS_FILE, "a", encoding="utf-8") as f:
@@ -113,7 +115,7 @@ def append(request) -> dict:
     # Step 2: summary.json を更新
     summary_all = refresh_summary(model=request.model)
 
-    return {"summary": summary, "feedback": feedback, "summary_all": summary_all}
+    return {"summary": summary, "important_facts": important_facts, "feedback": feedback, "summary_all": summary_all}
 
 
 def refresh_summary(model: str) -> dict:
@@ -134,7 +136,9 @@ def refresh_summary(model: str) -> dict:
         return {}
 
     last_summary = get()
-    last_summary_str = json.dumps(last_summary, ensure_ascii=False) if last_summary else "(なし)"
+    last_summary_str = (
+        json.dumps(last_summary, ensure_ascii=False) if last_summary else "(なし)"
+    )
 
     system_prompt_summary = f"""
 これは過去にユーザーとあなたが交わした会話のログです。
