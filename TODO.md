@@ -34,3 +34,12 @@ eliza-agent-app から Sleep コマンドを受け取るために、`ChatRespons
 
 eliza-agent-app 側が `sleep=true` を受け取ったら、自動で `stop_monitoring()` を呼び出す。
 
+## [x] Bash という tool を追加する [2026-02-22 完了]
+
+```
+class Bash:
+    ...
+```
+
+"bash_exec_date" というツールを追加する.
+`date` コマンドを実行して、現在の日付と時刻を取得するためのツール。
