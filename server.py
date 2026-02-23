@@ -153,9 +153,12 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 )
             )
 
-            # レスポンス生成, function calling
-            while True:
-                logger.info(f"[REQUEST ID: {request_id}] Generating response...")
+            # レスポンス生成, function calling (最大3回のループ)
+            MAX_TOOL_LOOPS = 3
+            for tool_loop in range(1, MAX_TOOL_LOOPS + 1):
+                logger.info(
+                    f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{MAX_TOOL_LOOPS})"
+                )
                 response = session.sample()
                 tool_used = False
                 if response.tool_calls:
@@ -177,9 +180,19 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                             tool_used = True
                             session.append(chat.tool_result(json.dumps(result)))
                 if tool_used:
-                    session.append(
-                        chat.system("ツール呼び出しの結果は上記の通りです。")
-                    )
+                    if tool_loop >= MAX_TOOL_LOOPS - 1:
+                        logger.warning(
+                            f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
+                        )
+                        session.append(
+                            chat.system(
+                                "ツール呼び出しの結果は上記の通りです。これ以上ツールは使用できません。今すぐユーザーへの最終回答を生成してください。"
+                            )
+                        )
+                    else:
+                        session.append(
+                            chat.system("ツール呼び出しの結果は上記の通りです。")
+                        )
                 else:
                     break
 
@@ -223,7 +236,12 @@ def _process_memory_in_background(request: MemoryRequest, request_id: str):
                 f"[REQUEST ID: {request_id}] messages is empty. Skipping log append, refreshing summary only."
             )
             summary_all = eliza.memory.refresh_summary(model=request.model)
-            result = {"summary": "", "important_facts": [], "feedback": "", "summary_all": summary_all}
+            result = {
+                "summary": "",
+                "important_facts": [],
+                "feedback": "",
+                "summary_all": summary_all,
+            }
         else:
             logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
             result = eliza.memory.append(request)

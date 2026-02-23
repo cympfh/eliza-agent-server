@@ -43,3 +43,29 @@ class Bash:
 
 "bash_exec_date" というツールを追加する.
 `date` コマンドを実行して、現在の日付と時刻を取得するためのツール。
+
+## [x] tool calling function のループが無限ループになるのを防止する [2026-02-22 完了]
+
+最大でも全体で3回のループで止める
+`while True` → `for tool_loop in range(1, MAX_TOOL_LOOPS + 1)` に変更。
+3回目のループでツールがまだ使われた場合は「これ以上ツールは使用できません」と伝えるシステムメッセージを追加してループを終了させる。
+（`sample(tools=[])` はAPIが対応していなかったため、メッセージによる誘導に変更）
+
+## [x] Switchbot/エアコン操作を完成させる [2026-02-23 14:55 完了]
+
+switchbot_aircon_on() に引数を渡せるようにする
+
+```
+def switchbot_aircon_on(self, mode: Literal["cool", "heat", "fan"]):
+    if mode == "heat":
+        # 暖房をつける処理
+        今ある "parameter": "26,5,1,on", で OK
+    elif mode == "cool":
+        # 冷房をつける処理
+        "parameter": "24,2,1,on"
+    elif mode == "fan":
+        # 送風をつける処理
+        # 普通に熱い程度なら送風でいい
+        "parameter": "25,4,3,on"
+```
+

@@ -83,16 +83,25 @@ class Switchbot:
         }
         return self.send_command(device_id, command)
 
-    def post_aircon_on(self) -> dict[str, Any]:
+    def post_aircon_on(self, mode: str) -> dict[str, Any]:
         """エアコンをつけるコマンドを送信
 
-        今の季節は暖房で固定 (26C, mode=heat, fun=auto)
+        mode:
+          "heat" -> 暖房 (26C, fan=auto)
+          "cool" -> 冷房 (24C, fan=auto)
+          "fan"  -> 送風 (25C)
         """
         device_id = "02-202010092320-98867876"
+        if mode == "cool":
+            parameter = "24,2,1,on"
+        elif mode == "fan":
+            parameter = "25,4,3,on"
+        else:
+            parameter = "26,5,1,on"
         command = {
             "commandType": "command",
             "command": "setAll",
-            "parameter": "26,5,1,on",
+            "parameter": parameter,
         }
         return self.send_command(device_id, command)
 
@@ -178,11 +187,20 @@ class Switchbot:
             ),
             tool(
                 name="switchbot_post_aircon_on",
-                description="エアコンをつけます。暖房モードで26度に設定されます。部屋が寒いときや帰宅時に使います。",
+                description=(
+                    "エアコンをつけます。mode で暖房(heat)/冷房(cool)/送風(fan) を選択できます。"
+                    "部屋が寒いときは heat、暑いときは cool、少し蒸し暑い程度なら fan が適切です。"
+                ),
                 parameters={
                     "type": "object",
-                    "properties": {},
-                    "required": [],
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["heat", "cool", "fan"],
+                            "description": "エアコンのモード: heat=暖房, cool=冷房, fan=送風",
+                        }
+                    },
+                    "required": ["mode"],
                 },
             ),
             tool(
@@ -215,7 +233,7 @@ class Switchbot:
             case "switchbot_post_aircon_off":
                 return self.post_aircon_off()
             case "switchbot_post_aircon_on":
-                return self.post_aircon_on()
+                return self.post_aircon_on(mode=tool_args["mode"])
             case "switchbot_post_light_off":
                 return self.post_light_off()
             case "switchbot_post_light_on":
