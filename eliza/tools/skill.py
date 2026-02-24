@@ -29,7 +29,11 @@ def _load_skills() -> list[SkillDef]:
             content = md_file.read_text(encoding="utf-8")
             name, description, instruction = _parse_skill_md(content)
             if name and description:
-                skills.append(SkillDef(name=name, description=description, instruction=instruction))
+                skills.append(
+                    SkillDef(
+                        name=name, description=description, instruction=instruction
+                    )
+                )
         except Exception:
             pass
     return skills
@@ -45,18 +49,22 @@ def _parse_skill_md(content: str) -> tuple[str, str, str]:
         end = content.find("---", 3)
         if end != -1:
             frontmatter = content[3:end].strip()
-            instruction = content[end + 3:].strip()
+            instruction = content[end + 3 :].strip()
             for line in frontmatter.splitlines():
                 if line.startswith("name:"):
-                    name = line[len("name:"):].strip()
+                    name = line[len("name:") :].strip()
                 elif line.startswith("description:"):
-                    description = line[len("description:"):].strip()
+                    description = line[len("description:") :].strip()
 
     return name, description, instruction
 
 
 class Skill:
     """スキルツール"""
+
+    def skills(self) -> list[SkillDef]:
+        """利用可能なスキル一覧を返す"""
+        return _load_skills()
 
     def skill_use(self, skill_name: str) -> dict[str, Any]:
         """スキルの instruction を返す"""
@@ -75,7 +83,7 @@ class Skill:
         skills = _load_skills()
         if not skills:
             return []
-        skill_list = "\n".join(f"- {s.name}: {s.description}" for s in skills)
+        skill_list = "\n".join(f"- {s.name}" for s in skills)
         return [
             tool(
                 name="skill_use",
@@ -84,7 +92,9 @@ class Skill:
                     "以下はあなたが利用できる Skill のリストです。\n"
                     "これは tool を更に抽象化したもので、特定のタスクを実行するための手順が定義されています。\n\n"
                     f"{skill_list}\n\n"
-                    "Skill を使う場合は、このツールを呼び出して手順を取得してください。"
+                    "【重要】tool を直接使う前に、まずこのツールで該当する Skill がないか確認してください。\n"
+                    "Skill がある場合は必ず skill_use を呼び出して手順を取得し、その手順に従って実行してください。\n"
+                    "Skill を使わずに tool を直接呼び出すことは非推奨です。"
                 ),
                 parameters={
                     "type": "object",

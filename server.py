@@ -143,6 +143,24 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                             )
                         )
 
+            # skill summary を system メッセージとして差し込む
+            def _inject_skill_summary():
+                skills = eliza.tools.Skill().skills()
+                if skills:
+                    logger.info(
+                        f"[REQUEST ID: {request_id}] Injecting skill summary as system message..."
+                    )
+                    skill_list = "\n".join(
+                        f"- {s.name}: {s.description}" for s in skills
+                    )
+                    session.append(
+                        chat.system(
+                            f"あなたは以下のスキルを利用できます:\n{skill_list}\n\n"
+                            "タスクを実行する前に、まず該当するスキルがないか確認してください。"
+                            "該当するスキルがある場合は、他の tool を直接使う前に必ず skill_use を実行し、その結果の手順に従ってください。"
+                        )
+                    )
+
             injected = False
             if request.messages[0].role != "system":
                 _inject_memory_summary()
@@ -158,6 +176,8 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     session.append(chat.user(msg.content))
                 elif msg.role == "assistant":
                     session.append(chat.assistant(msg.content))
+
+            _inject_skill_summary()
 
             # sleep 検出のためのシステムメッセージを追加
             session.append(
