@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Any
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -46,6 +47,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     message: Message
     sleep: bool = False
+    tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
 
 
 class MemoryRequest(BaseModel):
@@ -155,6 +157,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
             # レスポンス生成, function calling (最大3回のループ)
             MAX_TOOL_LOOPS = 3
+            tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
             for tool_loop in range(1, MAX_TOOL_LOOPS + 1):
                 logger.info(
                     f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{MAX_TOOL_LOOPS})"
@@ -166,7 +169,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                         f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}"
                     )
                     for tool_call in response.tool_calls:
-                        tool_name = tool_call.function.name
+                        tool_name: str = tool_call.function.name
                         tool_args = (
                             json.loads(tool_call.function.arguments)
                             if tool_call.function.arguments
@@ -176,6 +179,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                             f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
                         )
                         result = eliza.tools.call(tool_name, tool_args)
+                        tool_history.append(
+                            ({"name": tool_name, "args": tool_args}, result)
+                        )
                         if result:
                             tool_used = True
                             session.append(chat.tool_result(json.dumps(result)))
@@ -211,6 +217,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             return ChatResponse(
                 message=Message(role="assistant", content=response.content),
                 sleep=sleep,
+                tool=tool_history if tool_history else None,
             )
 
         except Exception as e:

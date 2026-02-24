@@ -69,3 +69,7 @@ def switchbot_aircon_on(self, mode: Literal["cool", "heat", "fan"]):
         "parameter": "25,4,3,on"
 ```
 
+## [x] Response に tool フィールドをオプショナルで追加 [2026-02-24 完了]
+
+ChatResponse に `tool: list[tuple[dict, dict]] | None = None` を追加。
+内容はtool呼び出しとその結果のリスト。

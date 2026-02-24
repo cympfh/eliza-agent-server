@@ -56,8 +56,28 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return Clipboard().call(tool_name, tool_args)
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
+        case _ if (
+            tool_name.startswith("x_")
+            or tool_name.startswith("web_")
+            or tool_name.startswith("code_")
+        ):
+            return {
+                "success": True,
+                "message": "This tool is a server-side. The result is omitted.",
+            }
         case _:
             return None
 
 
-__all__ = ["Alarm", "Bash", "Browser", "Clipboard", "MemoryTool", "Switchbot", "Tenki", "YouTubeSearch", "create_tools", "call"]
+__all__ = [
+    "Alarm",
+    "Bash",
+    "Browser",
+    "Clipboard",
+    "MemoryTool",
+    "Switchbot",
+    "Tenki",
+    "YouTubeSearch",
+    "create_tools",
+    "call",
+]
