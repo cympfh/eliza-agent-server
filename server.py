@@ -1,6 +1,9 @@
 import json
 import logging
 import os
+import signal
+import sys
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
@@ -25,10 +28,19 @@ XAI_API_KEY = os.environ.get("XAI_API_KEY")
 SWITCHBOT_API_TOKEN = os.environ.get("SWITCHBOT_API_TOKEN")
 SWITCHBOT_API_SECRET = os.environ.get("SWITCHBOT_API_SECRET")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Eliza Agent Server starting up...")
+    yield
+    logger.info("Eliza Agent Server shutting down gracefully...")
+
+
 # FastAPIアプリケーションの作成
 app = FastAPI(
     title="Eliza Agent Server",
     description="Grok API with x_search, web_search, and Switchbot tools",
+    lifespan=lifespan,
 )
 
 
@@ -322,6 +334,15 @@ async def get_tools() -> dict[str, list[str]]:
 
 def main():
     """サーバーを起動"""
+
+    def _handle_signal(signum, frame):
+        sig_name = signal.Signals(signum).name
+        logger.info(f"Received {sig_name}. Initiating graceful shutdown...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _handle_signal)
+    signal.signal(signal.SIGTERM, _handle_signal)
+
     uvicorn.run("server:app", host="0.0.0.0", port=9096, workers=4, reload=True)
 
 

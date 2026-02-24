@@ -113,3 +113,4 @@ skill_use という tool を追加する
 }
 ```
 
+## [x] Ctrl-C, SIGINT, SIGTERM で Graceful Shutdown する [2026-02-24 完了]
