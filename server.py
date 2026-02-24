@@ -197,7 +197,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                         )
                     else:
                         session.append(
-                            chat.system("ツール呼び出しの結果は上記の通りです。")
+                            chat.system(
+                                f"ツール呼び出しの結果は上記の通りです。ユーザーへの回答を生成してください。必要ならあと {MAX_TOOL_LOOPS - tool_loop - 1} 回までツールを呼び出せます。"
+                            )
                         )
                 else:
                     break

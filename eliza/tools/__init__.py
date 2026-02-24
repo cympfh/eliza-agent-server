@@ -10,6 +10,7 @@ from .bash import Bash
 from .browser import Browser
 from .clipboard import Clipboard
 from .memory import MemoryTool
+from .skill import Skill
 from .switchbot import Switchbot
 from .tenki import Tenki
 from .youtube import YouTubeSearch
@@ -33,6 +34,7 @@ def create_tools() -> list[chat_pb2.Tool]:
         print(f"Failed to create YouTubeSearch tools: {e}")
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
+    available_tools.extend(Skill().create_tools())
     return available_tools
 
 
@@ -56,6 +58,8 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return Clipboard().call(tool_name, tool_args)
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
+        case _ if tool_name.startswith("skill_"):
+            return Skill().call(tool_name, tool_args)
         case _ if (
             tool_name.startswith("x_")
             or tool_name.startswith("web_")
@@ -75,6 +79,7 @@ __all__ = [
     "Browser",
     "Clipboard",
     "MemoryTool",
+    "Skill",
     "Switchbot",
     "Tenki",
     "YouTubeSearch",

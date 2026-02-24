@@ -73,3 +73,43 @@ def switchbot_aircon_on(self, mode: Literal["cool", "heat", "fan"]):
 
 ChatResponse に `tool: list[tuple[dict, dict]] | None = None` を追加。
 内容はtool呼び出しとその結果のリスト。
+
+## [x] Skill が定義できる [2026-02-24 完了]
+
+### Skill 定義
+
+./skill/xxx.md, ./skill/yyy.md みたいなファイルを置いたら勝手にスキルと認識して tool として使えるようになる
+./skill/video.md が既にあるので読んでみて
+
+```
+class Skill:
+  name: str
+  description: str
+  instruction: str
+```
+
+利用可能な skill の (name, description) のリストを Grok 問い合わせの際に渡す。
+
+```
+以下はあなたが利用できる Skill のリストです。
+これは tool を更に抽象化したもので、特定のタスクを実行するための手順が定義されています。
+
+- video: 動画の検索や再生に関するスキル
+- (name): (description)
+
+Skill を使う場合は、skill_use(skill_name) を呼び出してください。
+```
+
+### Skill を使う
+
+skill_use という tool を追加する
+これは skill_name から instruction を結果として返す
+
+```
+{
+  "name": "(skill_name)",
+  "insturcition": "(skill_instruction)"
+  "next_step": "この手順に従ってタスクを tool に分解し実行してください。"
+}
+```
+
