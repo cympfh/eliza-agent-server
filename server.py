@@ -10,10 +10,10 @@ from typing import Any
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
-from xai_sdk import Client, chat
 
 import eliza.memory
 import eliza.tools
+from eliza.agent import Agent
 
 # ロギングの設定
 logging.basicConfig(
@@ -109,149 +109,33 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            # Grok クライアントの作成
             logger.info(
                 f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})"
             )
-            client = Client(api_key=XAI_API_KEY)
-
-            # tools を有効化してチャットセッション作成
-            available_tools = eliza.tools.create_tools()
-            logger.info(
-                f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
-            )
-            session = client.chat.create(
+            agent = Agent(
+                api_key=XAI_API_KEY,
                 model=request.model,
-                tools=available_tools,
+                use_memory=request.use_memory,
+            )
+            result = agent.run(
+                messages=[{"role": m.role, "content": m.content} for m in request.messages],
+                request_id=request_id,
             )
 
-            # 会話履歴を追加
-            logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")
-
-            # memory summary を system メッセージとして差し込む
-            def _inject_memory_summary():
-                if request.use_memory:
-                    summary = eliza.memory.get()
-                    if summary:
-                        logger.info(
-                            f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
-                        )
-                        summary_str = json.dumps(summary, ensure_ascii=False, indent=2)
-                        session.append(
-                            chat.system(
-                                f"以下はユーザーとの過去の会話の要約です:\n{summary_str}"
-                            )
-                        )
-
-            # skill summary を system メッセージとして差し込む
-            def _inject_skill_summary():
-                skills = eliza.tools.Skill().skills()
-                if skills:
-                    logger.info(
-                        f"[REQUEST ID: {request_id}] Injecting skill summary as system message..."
-                    )
-                    skill_list = "\n".join(
-                        f"- {s.name}: {s.description}" for s in skills
-                    )
-                    session.append(
-                        chat.system(
-                            f"あなたは以下のスキルを利用できます:\n{skill_list}\n\n"
-                            "タスクを実行する前に、まず該当するスキルがないか確認してください。"
-                            "該当するスキルがある場合は、他の tool を直接使う前に必ず skill_use を実行し、その結果の手順に従ってください。"
-                        )
-                    )
-
-            injected = False
-            if request.messages[0].role != "system":
-                _inject_memory_summary()
-                injected = True
-
-            for msg in request.messages:
-                if msg.role == "system":
-                    session.append(chat.system(msg.content))
-                    if not injected:
-                        _inject_memory_summary()
-                        injected = True
-                elif msg.role == "user":
-                    session.append(chat.user(msg.content))
-                elif msg.role == "assistant":
-                    session.append(chat.assistant(msg.content))
-
-            _inject_skill_summary()
-
-            # sleep 検出のためのシステムメッセージを追加
-            session.append(
-                chat.system(
-                    "ユーザーが寝る、または既に寝ていると判断した場合（例: おやすみ、寝る、などの発言や寝息と推察される内容）、"
-                    "レスポンスの末尾に `[SLEEP]` というマーカーを付けてください。"
-                )
-            )
-
-            # レスポンス生成, function calling (ループ回数制限あり)
-            MAX_TOOL_LOOPS = 5
-            tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
-            for tool_loop in range(1, MAX_TOOL_LOOPS + 1):
-                logger.info(
-                    f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{MAX_TOOL_LOOPS})"
-                )
-                response = session.sample()
-                tool_used = False
-                if response.tool_calls:
-                    logger.info(
-                        f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}"
-                    )
-                    for tool_call in response.tool_calls:
-                        tool_name: str = tool_call.function.name
-                        tool_args = (
-                            json.loads(tool_call.function.arguments)
-                            if tool_call.function.arguments
-                            else {}
-                        )
-                        logger.info(
-                            f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
-                        )
-                        result = eliza.tools.call(tool_name, tool_args)
-                        tool_history.append(
-                            ({"name": tool_name, "args": tool_args}, result)
-                        )
-                        if result:
-                            tool_used = True
-                            session.append(chat.tool_result(json.dumps(result)))
-                if tool_used:
-                    if tool_loop >= MAX_TOOL_LOOPS - 1:
-                        logger.warning(
-                            f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
-                        )
-                        session.append(
-                            chat.system(
-                                "ツール呼び出しの結果は上記の通りです。これ以上ツールは使用できません。今すぐユーザーへの最終回答を生成してください。"
-                            )
-                        )
-                    else:
-                        session.append(
-                            chat.system(
-                                f"ツール呼び出しの結果は上記の通りです。ユーザーへの回答を生成してください。必要ならあと {MAX_TOOL_LOOPS - tool_loop - 1} 回までツールを呼び出せます。"
-                            )
-                        )
-                else:
-                    break
-
-            # レスポンスの詳細ログ
             logger.info("-" * 80)
             logger.info(f"[RESPONSE ID: {request_id}] Success")
             logger.info("[RESPONSE] Role: assistant")
-            logger.info(f"[RESPONSE] Content length: {len(response.content)} chars")
+            logger.info(f"[RESPONSE] Content length: {len(result.content)} chars")
             logger.info("[RESPONSE] Content:")
             logger.info(
-                f"  {response.content[:500]}{'...' if len(response.content) > 500 else ''}"
+                f"  {result.content[:500]}{'...' if len(result.content) > 500 else ''}"
             )
             logger.info("=" * 80)
 
-            sleep = "[SLEEP]" in response.content
             return ChatResponse(
-                message=Message(role="assistant", content=response.content),
-                sleep=sleep,
-                tool=tool_history if tool_history else None,
+                message=Message(role="assistant", content=result.content),
+                sleep=result.sleep,
+                tool=result.tool_history if result.tool_history else None,
             )
 
         except Exception as e:

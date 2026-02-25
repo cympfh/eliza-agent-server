@@ -114,3 +114,19 @@ skill_use という tool を追加する
 ```
 
 ## [x] Ctrl-C, SIGINT, SIGTERM で Graceful Shutdown する [2026-02-24 完了]
+
+## [x] ハードコードされたプロンプトを eliza/prompt/ に切り出す [2026-02-25 完了]
+
+- eliza/prompt/ELIZA.md: 全体のシステムプロンプト
+- eliza/prompt/MEMORY_INSTRUCTION.md: memory summary の差し込みプロンプト（`{summary_str}` プレースホルダー）
+- eliza/prompt/SKILL_INSTRUCTION.md: skill 一覧の差し込みプロンプト（`{skill_list}` プレースホルダー）
+- eliza/prompt/SLEEP_INSTRUCTION.md: sleep 検出の差し込みプロンプト
+- eliza/prompt/TOOL_LOOP_INSTRUCTION.md: tool ループ制御プロンプト（jinja2 の条件分岐で `remaining` を使用）
+- jinja2 を導入し、全プロンプトテンプレートを `Template.render()` で統一
+
+## [x] Grok 呼び出し処理を eliza/agent.py に移動する [2026-02-25 完了]
+
+- `Agent` クラスと `AgentResponse` クラスを新規作成
+- `_inject_eliza_prompt` / `_inject_memory_summary` / `_inject_skill_summary` / `_inject_sleep_instruction` をメソッドに整理
+- `Agent.run()` がプロンプト差し込み・tool calling ループを一括して担う
+- `server.py` の `post_chat` は `Agent.run()` を呼ぶだけに簡略化
