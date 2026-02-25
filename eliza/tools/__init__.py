@@ -13,6 +13,7 @@ from .memory import MemoryTool
 from .skill import Skill
 from .switchbot import Switchbot
 from .tenki import Tenki
+from .todo import ToDo
 from .youtube import YouTubeSearch
 
 
@@ -35,6 +36,7 @@ def create_tools() -> list[chat_pb2.Tool]:
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
     available_tools.extend(Skill().create_tools())
+    available_tools.extend(ToDo().create_tools())
     return available_tools
 
 
@@ -60,6 +62,8 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return MemoryTool().call(tool_name, tool_args)
         case _ if tool_name.startswith("skill_"):
             return Skill().call(tool_name, tool_args)
+        case _ if tool_name.startswith("todo_"):
+            return ToDo().call(tool_name, tool_args)
         case _ if (
             tool_name.startswith("x_")
             or tool_name.startswith("web_")
