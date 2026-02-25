@@ -17,8 +17,11 @@ X (Twitter) なら動画以外のツイートも検索結果にヒットする�
 必要ならユーザーに再度確認する。
 
 4. 検索する
-YouTube なら youtube_search を使う (youtube_search は browser_open オプションがあるので 3 で YES なら browser_open=True にする)
-X なら x_search を使う
+**YouTube なら youtube_search を使う**
+youtube_search は browser_open オプションがあるので 3 で YES なら browser_open=True にする
+
+**X なら x_search を使う**
+`filter:video` を検索クエリに追加して動画だけヒットするようにする
 
 5. 今すぐ再生するなら、検索結果から動画のURLを取得してブラウザで開く
 browser_url_open を使えば特定の URL をブラウザで開いて今すぐ再生が行われる

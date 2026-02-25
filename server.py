@@ -187,8 +187,8 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 )
             )
 
-            # レスポンス生成, function calling (最大3回のループ)
-            MAX_TOOL_LOOPS = 3
+            # レスポンス生成, function calling (ループ回数制限あり)
+            MAX_TOOL_LOOPS = 5
             tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
             for tool_loop in range(1, MAX_TOOL_LOOPS + 1):
                 logger.info(
