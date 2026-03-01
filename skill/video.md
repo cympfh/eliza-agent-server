@@ -80,11 +80,14 @@ ${video_url}
 
 YouTube: https://www.youtube.com/@sana_natori
 https://www.youtube.com/results?search_query=名取さな
+X(Twitter): https://x.com/sana_natori
 
 ### 月ノ美兎（つきのみと, にじさんじ VTuber)
 
 YouTube: https://www.youtube.com/@TsukinoMito
 https://www.youtube.com/results?search_query=月ノ美兎
+
+X(Twitter): https://x.com/MitoTsukino
 
 ## おさだ (osada /おさだ【海外ひとり旅】, 旅行系 YouTube)
 

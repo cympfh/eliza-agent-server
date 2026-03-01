@@ -11,6 +11,7 @@ from .browser import Browser
 from .clipboard import Clipboard
 from .memory import MemoryTool
 from .skill import Skill
+from .subagents import SubAgents
 from .switchbot import Switchbot
 from .tenki import Tenki
 from .todo import ToDo
@@ -25,17 +26,18 @@ def create_tools() -> list[chat_pb2.Tool]:
         available_tools.extend(switchbot.create_tools())
     except Exception as e:
         print(f"Failed to create Switchbot tools: {e}")
-    available_tools.extend(Alarm().create_tools())
-    available_tools.extend(Bash().create_tools())
-    available_tools.extend(Browser().create_tools())
-    available_tools.extend(Tenki().create_tools())
     try:
         available_tools.extend(YouTubeSearch().create_tools())
     except Exception as e:
         print(f"Failed to create YouTubeSearch tools: {e}")
+    available_tools.extend(Alarm().create_tools())
+    available_tools.extend(Bash().create_tools())
+    available_tools.extend(Browser().create_tools())
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
     available_tools.extend(Skill().create_tools())
+    available_tools.extend(SubAgents().create_tools())
+    available_tools.extend(Tenki().create_tools())
     available_tools.extend(ToDo().create_tools())
     return available_tools
 
@@ -64,6 +66,8 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return Skill().call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):
             return ToDo().call(tool_name, tool_args)
+        case _ if tool_name.startswith("subagents_"):
+            return SubAgents().call(tool_name, tool_args)
         case _ if (
             tool_name.startswith("x_")
             or tool_name.startswith("web_")
