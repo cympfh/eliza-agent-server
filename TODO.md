@@ -130,3 +130,9 @@ skill_use という tool を追加する
 - `_inject_eliza_prompt` / `_inject_memory_summary` / `_inject_skill_summary` / `_inject_sleep_instruction` をメソッドに整理
 - `Agent.run()` がプロンプト差し込み・tool calling ループを一括して担う
 - `server.py` の `post_chat` は `Agent.run()` を呼ぶだけに簡略化
+
+## [x] POST /chat に detect_sleep を追加 [2026-03-03 完了]
+
+`detect_sleep: bool=True` を `ChatRequest` のフィールドとして追加する。
+このフラグが True の場合のみ `SLEEP_INSTRUCTION.md` をプロンプトに差し込む。
+今は常に挿し込まれている。

@@ -87,6 +87,7 @@ class Agent:
         messages: list[dict[str, str]],
         request_id: str,
         max_tool_loops: int = 5,
+        detect_sleep: bool = True,
     ) -> AgentResponse:
         client = Client(api_key=self.api_key)
 
@@ -110,7 +111,8 @@ class Agent:
                 session.append(chat.assistant(msg["content"]))
 
         self._inject_skill_summary(session, request_id)
-        self._inject_sleep_instruction(session, request_id)
+        if detect_sleep:
+            self._inject_sleep_instruction(session, request_id)
 
         # レスポンス生成 / tool calling ループ
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
@@ -136,6 +138,10 @@ class Agent:
                         f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
                     )
                     result = eliza.tools.call(tool_name, tool_args)
+                    result_str = json.dumps(result, ensure_ascii=False)
+                    logger.info(
+                        f"[REQUEST ID: {request_id}] Tool result: {result_str[:500]}{'...' if len(result_str) > 500 else ''}"
+                    )
                     tool_history.append(
                         ({"name": tool_name, "args": tool_args}, result)
                     )
@@ -159,7 +165,7 @@ class Agent:
             else:
                 break
 
-        sleep = "[SLEEP]" in response.content
+        sleep = detect_sleep and "[SLEEP]" in response.content
         return AgentResponse(
             content=response.content,
             sleep=sleep,

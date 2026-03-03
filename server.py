@@ -54,6 +54,7 @@ class ChatRequest(BaseModel):
     messages: list[Message]
     model: str = "grok-4-1-fast"
     use_memory: bool = True
+    detect_sleep: bool = True
 
 
 class ChatResponse(BaseModel):
@@ -120,6 +121,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             result = agent.run(
                 messages=[{"role": m.role, "content": m.content} for m in request.messages],
                 request_id=request_id,
+                detect_sleep=request.detect_sleep,
             )
 
             logger.info("-" * 80)
