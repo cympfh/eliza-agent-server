@@ -136,3 +136,12 @@ skill_use という tool を追加する
 `detect_sleep: bool=True` を `ChatRequest` のフィールドとして追加する。
 このフラグが True の場合のみ `SLEEP_INSTRUCTION.md` をプロンプトに差し込む。
 今は常に挿し込まれている。
+
+## [x] Message に timestamp と message_id を追加する [2026-03-04 完了]
+
+受け取る Message も返す Message も、両方とも timestamp と message_id を持つようにする。
+
+```
+  timestamp: datetime
+  message_id: (16文字程度のhash値)
+```

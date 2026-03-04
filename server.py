@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -6,14 +7,17 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import eliza.memory
 import eliza.tools
 from eliza.agent import Agent
+
+JST = ZoneInfo("Asia/Tokyo")
 
 # ロギングの設定
 logging.basicConfig(
@@ -44,10 +48,18 @@ app = FastAPI(
 )
 
 
+def _generate_message_id() -> str:
+    """現在時刻と乱数から16文字のhex message_id を生成する"""
+    raw = f"{datetime.now(JST).isoformat()}-{os.urandom(8).hex()}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
 # リクエスト/レスポンスのスキーマ
 class Message(BaseModel):
     role: str  # "system", "user", "assistant"
     content: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(JST))
+    message_id: str = Field(default_factory=_generate_message_id)
 
 
 class ChatRequest(BaseModel):
@@ -119,7 +131,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 use_memory=request.use_memory,
             )
             result = agent.run(
-                messages=[{"role": m.role, "content": m.content} for m in request.messages],
+                messages=[
+                    {"role": m.role, "content": m.content} for m in request.messages
+                ],
                 request_id=request_id,
                 detect_sleep=request.detect_sleep,
             )
