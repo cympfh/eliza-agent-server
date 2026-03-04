@@ -145,3 +145,54 @@ skill_use という tool を追加する
   timestamp: datetime
   message_id: (16文字程度のhash値)
 ```
+
+## [ ] /memory および memory log の持ち方を見直す
+
+次のようにする
+
+- POST /chat で受け取った messages と生成した message はこの時点で ./.memory/messages.sqlite に保存する
+    - `(message_id, timestamp, role, content)` の形式で保存
+    - ただし message_id で重複があったら保存しない（同じ message が複数回送られてくることがあるため）
+- 今の POST /memory を廃止
+- 新しく POST /summary というエンドポイントを作る
+    - POST data は特に何も受け取らない
+    - 次の二つを行う
+        - daily summary を生成
+            - ./.memory/messages.sqlite に保存されている全 message を読み込む
+            - 一日ごとに分割して summary を生成
+                - ./.memory/summary/2026-03-04.json で保存
+                    ```json
+                    {
+                        "created_datetime": "2026-03-04T23:59:59 (JSTで)",
+                        "num_mssages": 100,  // この日にやりとりされた messages の数
+                        "messages": [message_id のリスト],
+                        "summary": "この日にやりとりされた内容の要約",
+                        "user_profile": {
+                            "interests": ["旅行", "料理"],
+                            "tendencies": ["最新の情報を求める傾向がある"]
+                        }
+                    }
+                    ```
+                - 既にこのファイルがあるときは messages を比較して、新しいものがあるときだけ生成する。同じならスキップする。
+        - all summary を生成
+            - daily summary のいずれかが更新された場合のみ生成する
+            - ./.memory/summary/*.json を全て読み込む
+                - .summary と .user_profile だけを取り出す
+            - 全期間の summary を統合して生成
+                - ./.memory/summary/all.json
+                    ```json
+                    {
+                        "created_datetime": "2026-03-04T23:59:59 (JSTで)",
+                        "num_mssages": num_messages の和,
+                        "summary": "全期間を通しての要約",
+                        "user_profile": {
+                            "interests": ["旅行", "料理"],
+                            "tendencies": ["最新の情報を求める傾向がある"]
+                        }
+                    }
+                    ```
+
+## [ ] max_loop_tools を ChatRequest に追加
+
+agent.run からは必須にする
+ChatRequest で default は 3 にする

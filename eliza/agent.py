@@ -65,7 +65,9 @@ class Agent:
 
     def _inject_sleep_instruction(self, session: Any, request_id: str) -> None:
         """sleep 検出のためのシステムメッセージを差し込む"""
-        logger.info(f"[REQUEST ID: {request_id}] Injecting sleep instruction as system message...")
+        logger.info(
+            f"[REQUEST ID: {request_id}] Injecting sleep instruction as system message..."
+        )
         session.append(chat.system(self._load_prompt("SLEEP_INSTRUCTION.md")))
 
     def _inject_skill_summary(self, session: Any, request_id: str) -> None:
@@ -161,6 +163,9 @@ class Agent:
                             "TOOL_LOOP_INSTRUCTION.md", remaining=remaining
                         )
                     )
+                )
+                print(
+                    self._load_prompt("TOOL_LOOP_INSTRUCTION.md", remaining=remaining)
                 )
             else:
                 break

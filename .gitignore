@@ -1,7 +1,6 @@
 .claude/
-.memory/logs.jsonl*
-.memory/summary.json*
-.memory/todo.json
+.memory/*
+!.memory/.gitkeep
 
 # Python
 __pycache__/

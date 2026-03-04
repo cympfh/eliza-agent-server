@@ -75,15 +75,8 @@ class ChatResponse(BaseModel):
     tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
 
 
-class MemoryRequest(BaseModel):
-    messages: list[Message]
-    model: str = "grok-4-1-fast"
-
-
-class MemoryAcceptedResponse(BaseModel):
+class SummaryResponse(BaseModel):
     status: str
-    message: str
-    request_id: str
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -148,8 +141,24 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             )
             logger.info("=" * 80)
 
+            response_message = Message(role="assistant", content=result.content)
+
+            # 受信メッセージ + 生成メッセージを SQLite に保存
+            all_msgs = list(request.messages) + [response_message]
+            eliza.memory.save_messages(
+                [
+                    {
+                        "message_id": m.message_id,
+                        "timestamp": m.timestamp.isoformat(),
+                        "role": m.role,
+                        "content": m.content,
+                    }
+                    for m in all_msgs
+                ]
+            )
+
             return ChatResponse(
-                message=Message(role="assistant", content=result.content),
+                message=response_message,
                 sleep=result.sleep,
                 tool=result.tool_history if result.tool_history else None,
             )
@@ -167,72 +176,39 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
     raise HTTPException(status_code=500, detail=f"Error: {str(last_error)}")
 
 
-def _process_memory_in_background(request: MemoryRequest, request_id: str):
-    """
-    バックグラウンドでメモリ処理を実行する関数
-    """
+def _generate_summary_in_background(request_id: str):
+    """バックグラウンドで summary 生成を実行する"""
     try:
-        if not request.messages:
-            logger.info(
-                f"[REQUEST ID: {request_id}] messages is empty. Skipping log append, refreshing summary only."
-            )
-            summary_all = eliza.memory.refresh_summary(model=request.model)
-            result = {
-                "summary": "",
-                "important_facts": [],
-                "feedback": "",
-                "summary_all": summary_all,
-            }
-        else:
-            logger.info(f"[REQUEST ID: {request_id}] Calling eliza.memory.append ...")
-            result = eliza.memory.append(request)
-        logger.info(f"[REQUEST ID: {request_id}] Done.")
-        logger.info(f"[MEMORY] summary: {result['summary']}")
-        logger.info(f"[MEMORY] important_facts: {result['important_facts']}")
-        logger.info(f"[MEMORY] feedback: {result['feedback']}")
-        summary_all_str = json.dumps(result["summary_all"], ensure_ascii=False)
+        logger.info(f"[REQUEST ID: {request_id}] Generating summary ...")
+        result = eliza.memory.generate_summary(model="grok-4-1-fast")
+        summary_str = json.dumps(result, ensure_ascii=False)
         logger.info(
-            f"[MEMORY] summary_all: {summary_all_str[:1000]}{'...' if len(summary_all_str) > 1000 else ''}"
+            f"[REQUEST ID: {request_id}] Summary done: {summary_str[:500]}{'...' if len(summary_str) > 500 else ''}"
         )
         logger.info("=" * 80)
     except Exception as e:
         logger.error(
-            f"[REQUEST ID: {request_id}] Error occurred in background task: {str(e)}"
+            f"[REQUEST ID: {request_id}] Error in summary background task: {str(e)}"
         )
         logger.error("=" * 80)
 
 
-@app.post("/memory", status_code=202, response_model=MemoryAcceptedResponse)
-async def post_memory(
-    request: MemoryRequest, background_tasks: BackgroundTasks
-) -> MemoryAcceptedResponse:
+@app.post("/summary", status_code=202, response_model=SummaryResponse)
+async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
     """
-    会話履歴をメモリに記録します。
+    メモリ要約を生成します。
     処理はバックグラウンドで実行され、即座に 202 Accepted を返します。
     """
     request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
 
     logger.info("=" * 80)
-    logger.info(f"[REQUEST ID: {request_id}] POST /memory")
-    logger.info("-" * 80)
-    logger.info(f"[REQUEST] Model: {request.model}")
-    logger.info(f"[REQUEST] Number of messages: {len(request.messages)}")
-    for i, msg in enumerate(request.messages):
-        logger.info(
-            f"  Message[{i}]: role={msg.role}, content={msg.content[:200]}{'...' if len(msg.content) > 200 else ''}"
-        )
-    logger.info("-" * 80)
+    logger.info(f"[REQUEST ID: {request_id}] POST /summary")
 
-    # バックグラウンドタスクに追加
-    background_tasks.add_task(_process_memory_in_background, request, request_id)
+    background_tasks.add_task(_generate_summary_in_background, request_id)
 
     logger.info(f"[REQUEST ID: {request_id}] Accepted. Processing in background.")
 
-    return MemoryAcceptedResponse(
-        status="accepted",
-        message="Memory processing started in background",
-        request_id=request_id,
-    )
+    return SummaryResponse(status="accepted")
 
 
 @app.get("/health")
