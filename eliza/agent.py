@@ -18,10 +18,12 @@ class AgentResponse:
     def __init__(
         self,
         content: str,
+        reasoning: str | None,
         sleep: bool,
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]],
     ):
         self.content = content
+        self.reasoning = reasoning
         self.sleep = sleep
         self.tool_history = tool_history
 
@@ -84,11 +86,53 @@ class Agent:
                 )
             )
 
+    def _inject_reasoning_instruction(self, session: Any, request_id: str) -> None:
+        """reasoning 形式での出力を強制するシステムメッセージを差し込む"""
+        logger.info(
+            f"[REQUEST ID: {request_id}] Injecting reasoning instruction as system message..."
+        )
+        session.append(chat.system(self._load_prompt("REASONING_INSTRUCTION.md")))
+
+    def _inject_loop_before_prompt(
+        self, session: Any, request_id: str, tool_loop: int, remaining: int
+    ) -> None:
+        p = self._load_prompt(
+            "LOOP_BEFORE_INSTRUCTION.md",
+            tool_loop=tool_loop,
+            remaining=remaining,
+        ).strip()
+        if p:
+            logger.info(
+                f"[REQUEST ID: {request_id}] Injecting loop before instruction... (tool loop {tool_loop}, remaining {remaining})"
+            )
+            print(p)
+            session.append(chat.system(p))
+
+    def _inject_loop_after_prompt(
+        self,
+        session: Any,
+        request_id: str,
+        tool_loop: int,
+        remaining: int,
+        tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]],
+    ) -> None:
+        p = self._load_prompt(
+            "LOOP_AFTER_INSTRUCTION.md",
+            tool_loop=tool_loop,
+            remaining=remaining,
+        ).strip()
+        if p:
+            logger.info(
+                f"[REQUEST ID: {request_id}] Injecting loop after instruction... (tool loop {tool_loop}, remaining {remaining})"
+            )
+            print(p)
+            session.append(chat.system(p))
+
     def run(
         self,
         messages: list[dict[str, str]],
         request_id: str,
-        max_tool_loops: int = 5,
+        max_tool_loops: int,
         detect_sleep: bool = True,
     ) -> AgentResponse:
         client = Client(api_key=self.api_key)
@@ -115,6 +159,7 @@ class Agent:
         self._inject_skill_summary(session, request_id)
         if detect_sleep:
             self._inject_sleep_instruction(session, request_id)
+        self._inject_reasoning_instruction(session, request_id)
 
         # レスポンス生成 / tool calling ループ
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
@@ -124,6 +169,11 @@ class Agent:
             )
             response = session.sample()
             tool_used = False
+
+            remaining = max_tool_loops - tool_loop - 1
+            self._inject_loop_before_prompt(
+                session, request_id, tool_loop=tool_loop, remaining=remaining
+            )
 
             if response.tool_calls:
                 logger.info(
@@ -157,22 +207,36 @@ class Agent:
                     logger.warning(
                         f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
                     )
-                session.append(
-                    chat.system(
-                        self._load_prompt(
-                            "TOOL_LOOP_INSTRUCTION.md", remaining=remaining
-                        )
-                    )
-                )
-                print(
-                    self._load_prompt("TOOL_LOOP_INSTRUCTION.md", remaining=remaining)
+                self._inject_loop_after_prompt(
+                    session,
+                    request_id,
+                    tool_loop=tool_loop,
+                    remaining=remaining,
+                    tool_history=tool_history,
                 )
             else:
                 break
 
-        sleep = detect_sleep and "[SLEEP]" in response.content
+        raw_content = response.content
+        reasoning: str | None = None
+        content = raw_content
+        try:
+            parsed = json.loads(raw_content)
+            if isinstance(parsed, dict) and "content" in parsed:
+                reasoning = parsed.get("reasoning")
+                content = parsed["content"]
+                logger.info(
+                    f"[REQUEST ID: {request_id}] Reasoning: {str(reasoning)[:500]}{'...' if reasoning and len(reasoning) > 500 else ''}"
+                )
+        except (json.JSONDecodeError, ValueError):
+            logger.warning(
+                f"[REQUEST ID: {request_id}] Failed to parse response as reasoning JSON. Using raw content."
+            )
+
+        sleep = detect_sleep and "[SLEEP]" in content
         return AgentResponse(
-            content=response.content,
+            content=content,
+            reasoning=reasoning,
             sleep=sleep,
             tool_history=tool_history,
         )

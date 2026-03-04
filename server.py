@@ -67,6 +67,7 @@ class ChatRequest(BaseModel):
     model: str = "grok-4-1-fast"
     use_memory: bool = True
     detect_sleep: bool = True
+    max_loop: int = 3
 
 
 class ChatResponse(BaseModel):
@@ -129,6 +130,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 ],
                 request_id=request_id,
                 detect_sleep=request.detect_sleep,
+                max_tool_loops=request.max_loop,
             )
 
             logger.info("-" * 80)

@@ -146,7 +146,7 @@ skill_use という tool を追加する
   message_id: (16文字程度のhash値)
 ```
 
-## [ ] /memory および memory log の持ち方を見直す
+## [x] /memory および memory log の持ち方を見直す [2026-03-04 完了]
 
 次のようにする
 
@@ -192,7 +192,21 @@ skill_use という tool を追加する
                     }
                     ```
 
-## [ ] max_loop_tools を ChatRequest に追加
+## [x] reasoning を追加 [2026-03-04 完了]
+
+`/chat` で生成するレスポンスを
+
+```json
+{
+  "reasoning": "このレスポンスを生成するにあたっての思考過程や根拠を説明するテキスト",
+  "content": "ユーザーに返すレスポンスのテキスト"
+}
+```
+
+という構造に強制する。
+JSON として問題なくパースできたらこの content だけ返す
+ロギングには reasoning も含める
+
 
 agent.run からは必須にする
 ChatRequest で default は 3 にする
