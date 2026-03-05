@@ -84,6 +84,25 @@ class Agent:
                 )
             )
 
+    _TOOL_INTENT_PATTERNS = [
+        "検索します",
+        "検索してみます",
+        "調べます",
+        "調べてみます",
+        "確認します",
+        "確認してみます",
+        "調べますね",
+        "検索しますね",
+        "確認しますね",
+        "探します",
+        "探してみます",
+        "調べてみますね",
+    ]
+
+    def _should_retry_with_tool(self, content: str) -> bool:
+        """ツールを使わずにツール使用の意図を示す文言が含まれているか判定する"""
+        return any(pattern in content for pattern in self._TOOL_INTENT_PATTERNS)
+
     def run(
         self,
         messages: list[dict[str, str]],
@@ -164,9 +183,18 @@ class Agent:
                         )
                     )
                 )
-                print(
-                    self._load_prompt("TOOL_LOOP_INSTRUCTION.md", remaining=remaining)
-                )
+            elif self._should_retry_with_tool(response.content):
+                remaining = max_tool_loops - tool_loop - 1
+                if remaining > 0:
+                    logger.info(
+                        f"[REQUEST ID: {request_id}] Response mentions tool intent but no tool was called. Retrying with tool instruction..."
+                    )
+                    session.append(chat.assistant(response.content))
+                    session.append(
+                        chat.system(self._load_prompt("TOOL_REQUIRED_INSTRUCTION.md"))
+                    )
+                else:
+                    break
             else:
                 break
 

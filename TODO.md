@@ -146,7 +146,7 @@ skill_use という tool を追加する
   message_id: (16文字程度のhash値)
 ```
 
-## [ ] /memory および memory log の持ち方を見直す
+## [x] /memory および memory log の持ち方を見直す [2026-03-05 完了]
 
 次のようにする
 
@@ -192,7 +192,15 @@ skill_use という tool を追加する
                     }
                     ```
 
-## [ ] max_loop_tools を ChatRequest に追加
+## [x] max_loop_tools を ChatRequest に追加 [2026-03-05 完了]
 
 agent.run からは必須にする
-ChatRequest で default は 3 にする
+ChatRequest で default は 5 にする
+
+## [x] ELIZA.md プロンプト強化 [2026-03-05 完了]
+
+最新情報・日時・天気・ニュース関連の質問は必ず検索ツールを使うよう明記、回答だけでなく実際にツールを実行することを強制する。
+
+## [x] agent.py ループロジック強化 [2026-03-05 完了]
+
+ツールを使わずに「検索します」「調べます」等のフレーズで終わったレスポンスを検知し、ツール使用を促すシステムメッセージを挟んでリトライする。

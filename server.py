@@ -67,6 +67,7 @@ class ChatRequest(BaseModel):
     model: str = "grok-4-1-fast"
     use_memory: bool = True
     detect_sleep: bool = True
+    max_tool_loops: int = 5
 
 
 class ChatResponse(BaseModel):
@@ -128,6 +129,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     {"role": m.role, "content": m.content} for m in request.messages
                 ],
                 request_id=request_id,
+                max_tool_loops=request.max_tool_loops,
                 detect_sleep=request.detect_sleep,
             )
 
