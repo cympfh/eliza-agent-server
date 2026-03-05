@@ -2,9 +2,16 @@
 
 from typing import Any
 
-import eliza.memory
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
+
+import eliza.memory
+
+
+class MemoryGrepParams(BaseModel):
+    pattern: str = Field(description="検索する正規表現パターン")
+    limit: int = Field(10, description="返す最大件数（デフォルト: 10）")
 
 
 class MemoryTool:
@@ -33,20 +40,7 @@ class MemoryTool:
                     "「以前〇〇について話したっけ？」「△△を調べたことある？」などに使います。"
                     "最新の会話から順に最大 limit 件返します。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "pattern": {
-                            "type": "string",
-                            "description": "検索する正規表現パターン",
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "返す最大件数（デフォルト: 10）",
-                        },
-                    },
-                    "required": ["pattern"],
-                },
+                parameters=MemoryGrepParams.model_json_schema(),
             ),
         ]
 

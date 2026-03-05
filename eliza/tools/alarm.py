@@ -3,14 +3,32 @@
 import os
 import subprocess
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlencode
 
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
 ALARM_BASE_URL = "https://cympfh.cc/alarm/"
+
+
+SoundType = Literal["beep", "bell", "chime", "siren", "pulse"]
+
+
+class AlarmSetParams(BaseModel):
+    time: str = Field(description="アラーム時刻 (HH:MM または HH:MM:SS 形式, 24時間制)")
+    sound: SoundType = Field("bell", description="アラーム音の種類")
+    auto_stop: int = Field(
+        0,
+        description="自動停止までの秒数。0以下なら自動停止しない。絶対時刻指定には0を推奨。",
+    )
+
+
+class AlarmSetAfterMinutesParams(BaseModel):
+    minutes: int = Field(description="何分後にアラームするか")
+    sound: SoundType = Field("bell", description="アラーム音の種類")
 
 
 class Alarm:
@@ -27,7 +45,10 @@ class Alarm:
             auto_stop: 自動停止秒数 (0以下なら自動停止しない)
         """
         if not BROWSER_PATH:
-            return {"status": "error", "message": "環境変数 BROWSER_PATH が設定されていません"}
+            return {
+                "status": "error",
+                "message": "環境変数 BROWSER_PATH が設定されていません",
+            }
         params = urlencode({"time": time, "sound": sound, "autoStop": auto_stop})
         url = f"{ALARM_BASE_URL}?{params}"
         subprocess.Popen([BROWSER_PATH, url])
@@ -63,25 +84,7 @@ class Alarm:
                     " sound は beep/bell/chime/siren/pulse から選べます（推奨は bell）。"
                     " 絶対時刻指定のアラームは auto_stop=0 (自動停止なし) を推奨します。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "time": {
-                            "type": "string",
-                            "description": "アラーム時刻 (HH:MM または HH:MM:SS 形式, 24時間制)",
-                        },
-                        "sound": {
-                            "type": "string",
-                            "enum": ["beep", "bell", "chime", "siren", "pulse"],
-                            "description": "アラーム音の種類",
-                        },
-                        "auto_stop": {
-                            "type": "integer",
-                            "description": "自動停止までの秒数。0以下なら自動停止しない。絶対時刻指定には0を推奨。",
-                        },
-                    },
-                    "required": ["time"],
-                },
+                parameters=AlarmSetParams.model_json_schema(),
             ),
             tool(
                 name="alarm_set_after_minutes",
@@ -91,21 +94,7 @@ class Alarm:
                     " sound は beep/bell/chime/siren/pulse から選べます（推奨は chime）。"
                     " 短時間タイマーなので自動停止(5秒)が有効になります。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "minutes": {
-                            "type": "integer",
-                            "description": "何分後にアラームするか",
-                        },
-                        "sound": {
-                            "type": "string",
-                            "enum": ["beep", "bell", "chime", "siren", "pulse"],
-                            "description": "アラーム音の種類",
-                        },
-                    },
-                    "required": ["minutes"],
-                },
+                parameters=AlarmSetAfterMinutesParams.model_json_schema(),
             ),
         ]
 

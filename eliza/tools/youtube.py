@@ -6,9 +6,10 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
@@ -72,11 +73,32 @@ def _search(keyword: str, limit: int, order: str) -> list[dict[str, str]]:
     return results[:limit]
 
 
+class YouTubeSearchParams(BaseModel):
+    keyword: str = Field(
+        description="検索キーワード (例: 'ヨルシカ 音楽', 'cute cats', 'lofi hip hop')"
+    )
+    limit: int = Field(5, description="取得する件数 (1〜10, デフォルト5)")
+    order: Literal[
+        "date", "rating", "relevance", "title", "videoCount", "viewCount"
+    ] = Field(
+        "relevance",
+        description="並び順。date=新着順, rating=評価順, relevance=関連度順(デフォルト), title=タイトル順, videoCount=動画数順, viewCount=再生数順",
+    )
+    browser_open: bool = Field(
+        False,
+        description="true のとき、検索結果の先頭動画をブラウザで開く。ユーザーが「開いて」「見たい」「再生して」と言っている場合は必ず true にすること。",
+    )
+
+
 class YouTubeSearch:
     """YouTube 検索ツール"""
 
     def search(
-        self, keyword: str, limit: int = 5, order: str = "relevance", browser_open: bool = False
+        self,
+        keyword: str,
+        limit: int = 5,
+        order: str = "relevance",
+        browser_open: bool = False,
     ) -> dict[str, Any]:
         """YouTube でキーワード検索して動画一覧を返す
 
@@ -121,36 +143,7 @@ class YouTubeSearch:
                     " 結果としてタイトル・URL・チャンネル名・投稿日を返します。"
                     " ユーザーが「開いて」「見たい」「再生して」などブラウザで開くことを求めている場合は browser_open=true を指定してください。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "keyword": {
-                            "type": "string",
-                            "description": "検索キーワード (例: 'ヨルシカ 音楽', 'cute cats', 'lofi hip hop')",
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "取得する件数 (1〜10, デフォルト5)",
-                        },
-                        "order": {
-                            "type": "string",
-                            "enum": [
-                                "date",
-                                "rating",
-                                "relevance",
-                                "title",
-                                "videoCount",
-                                "viewCount",
-                            ],
-                            "description": "並び順。date=新着順, rating=評価順, relevance=関連度順(デフォルト), title=タイトル順, videoCount=動画数順, viewCount=再生数順",
-                        },
-                        "browser_open": {
-                            "type": "boolean",
-                            "description": "true のとき、検索結果の先頭動画をブラウザで開く。ユーザーが「開いて」「見たい」「再生して」と言っている場合は必ず true にすること。",
-                        },
-                    },
-                    "required": ["keyword"],
-                },
+                parameters=YouTubeSearchParams.model_json_schema(),
             ),
         ]
 

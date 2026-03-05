@@ -204,3 +204,14 @@ ChatRequest で default は 5 にする
 ## [x] agent.py ループロジック強化 [2026-03-05 完了]
 
 ツールを使わずに「検索します」「調べます」等のフレーズで終わったレスポンスを検知し、ツール使用を促すシステムメッセージを挟んでリトライする。
+
+## [x] 最終回答を structured output 化 [2026-03-05 完了]
+
+`AgentAnswer(BaseModel)` を導入し、最終回答を `session.parse(AgentAnswer)` で生成する。
+`reasoning` と `answer` フィールドを持ち、`ChatResponse` にも `reasoning` を追加。
+`AgentResponse` も BaseModel にリファクタリング。
+
+## [x] Tool Definition も Pydantic を使う [2026-03-05 完了]
+
+https://docs.x.ai/developers/tools/function-calling の "Defining Tools with Pydantic" 参考
+各ツールファイルに `BaseModel` + `Field` でパラメータモデルを定義し、`create_tools()` 内の手書き JSON Schema dict を `ModelClass.model_json_schema()` に置き換えた。

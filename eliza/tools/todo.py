@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from typing import Any
 
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
@@ -22,6 +23,25 @@ def _save(todos: list[dict]):
     os.makedirs(os.path.dirname(TODO_FILE), exist_ok=True)
     with open(TODO_FILE, "w") as f:
         json.dump(todos, f, ensure_ascii=False, indent=2)
+
+
+class TodoListParams(BaseModel):
+    include_done: bool = Field(
+        False, description="完了済みのToDoも含めるか（デフォルト: false）"
+    )
+
+
+class TodoAddParams(BaseModel):
+    title: str = Field(description="タスクのタイトル")
+    note: str = Field("", description="補足メモ（任意）")
+
+
+class TodoDoneParams(BaseModel):
+    id: int = Field(description="完了にするToDoのID")
+
+
+class TodoDeleteParams(BaseModel):
+    id: int = Field(description="削除するToDoのID")
 
 
 class ToDo:
@@ -65,7 +85,10 @@ class ToDo:
         todos = _load()
         new_todos = [t for t in todos if t["id"] != todo_id]
         if len(new_todos) == len(todos):
-            return {"status": "error", "message": f"ID {todo_id} のToDoが見つかりません"}
+            return {
+                "status": "error",
+                "message": f"ID {todo_id} のToDoが見つかりません",
+            }
         _save(new_todos)
         return {"status": "ok", "deleted_id": todo_id}
 
@@ -79,16 +102,7 @@ class ToDo:
                     "デフォルトでは未完了のものだけ返します。"
                     "include_done=true にすると完了済みも含めます。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "include_done": {
-                            "type": "boolean",
-                            "description": "完了済みのToDoも含めるか（デフォルト: false）",
-                        },
-                    },
-                    "required": [],
-                },
+                parameters=TodoListParams.model_json_schema(),
             ),
             tool(
                 name="todo_add",
@@ -96,20 +110,7 @@ class ToDo:
                     "やるべきことリスト（ToDo）に新しいタスクを追加します。"
                     "「〇〇をToDoに追加して」「〇〇をやることリストに入れて」などに使います。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "title": {
-                            "type": "string",
-                            "description": "タスクのタイトル",
-                        },
-                        "note": {
-                            "type": "string",
-                            "description": "補足メモ（任意）",
-                        },
-                    },
-                    "required": ["title"],
-                },
+                parameters=TodoAddParams.model_json_schema(),
             ),
             tool(
                 name="todo_done",
@@ -118,16 +119,7 @@ class ToDo:
                     "「〇〇が終わった」「〇〇を完了にして」などに使います。"
                     "IDは todo_list で確認できます。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "id": {
-                            "type": "integer",
-                            "description": "完了にするToDoのID",
-                        },
-                    },
-                    "required": ["id"],
-                },
+                parameters=TodoDoneParams.model_json_schema(),
             ),
             tool(
                 name="todo_delete",
@@ -136,16 +128,7 @@ class ToDo:
                     "「〇〇を消して」「〇〇をリストから削除して」などに使います。"
                     "IDは todo_list で確認できます。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "id": {
-                            "type": "integer",
-                            "description": "削除するToDoのID",
-                        },
-                    },
-                    "required": ["id"],
-                },
+                parameters=TodoDeleteParams.model_json_schema(),
             ),
         ]
 
@@ -153,9 +136,13 @@ class ToDo:
         """Call a todo tool by name"""
         match tool_name:
             case "todo_list":
-                return self.list_todos(include_done=tool_args.get("include_done", False))
+                return self.list_todos(
+                    include_done=tool_args.get("include_done", False)
+                )
             case "todo_add":
-                return self.add(title=tool_args["title"], note=tool_args.get("note", ""))
+                return self.add(
+                    title=tool_args["title"], note=tool_args.get("note", "")
+                )
             case "todo_done":
                 return self.done(todo_id=tool_args["id"])
             case "todo_delete":

@@ -3,10 +3,19 @@
 import subprocess
 from typing import Any
 
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
 CLIP_CMD = "/home/cympfh/bin/clip"
+
+
+class ClipboardCopyParams(BaseModel):
+    text: str = Field(description="クリップボードにコピーするテキスト")
+
+
+class ClipboardPasteParams(BaseModel):
+    pass
 
 
 class Clipboard:
@@ -60,16 +69,7 @@ class Clipboard:
                     "テキストをクリップボードにコピーします。"
                     "「これをコピーして」「クリップボードに保存して」などに使います。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "text": {
-                            "type": "string",
-                            "description": "クリップボードにコピーするテキスト",
-                        },
-                    },
-                    "required": ["text"],
-                },
+                parameters=ClipboardCopyParams.model_json_schema(),
             ),
             tool(
                 name="clipboard_paste",
@@ -77,10 +77,7 @@ class Clipboard:
                     "クリップボードの内容を取得します。"
                     "「クリップボードの中身は？」「さっきコピーしたやつ見せて」などに使います。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                },
+                parameters=ClipboardPasteParams.model_json_schema(),
             ),
         ]
 

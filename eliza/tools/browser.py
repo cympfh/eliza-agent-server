@@ -4,10 +4,15 @@ import os
 import subprocess
 from typing import Any
 
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
 BROWSER_PATH = os.environ.get("BROWSER_PATH")
+
+
+class BrowserUrlOpenParams(BaseModel):
+    url: str = Field(description="開くURL")
 
 
 class Browser:
@@ -20,7 +25,10 @@ class Browser:
             url: 開くURL
         """
         if not BROWSER_PATH:
-            return {"status": "error", "message": "環境変数 BROWSER_PATH が設定されていません"}
+            return {
+                "status": "error",
+                "message": "環境変数 BROWSER_PATH が設定されていません",
+            }
         subprocess.Popen([BROWSER_PATH, url])
         return {
             "status": "ok",
@@ -38,16 +46,7 @@ class Browser:
                     "「このURLを開いて」「ブラウザで見たい」などの要求に使います。"
                     "重要：このツールはURLを直接開くため、ユーザーの意図を正確に理解して使用してください。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "開くURL",
-                        },
-                    },
-                    "required": ["url"],
-                },
+                parameters=BrowserUrlOpenParams.model_json_schema(),
             ),
         ]
 

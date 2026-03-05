@@ -3,8 +3,16 @@
 import subprocess
 from typing import Any
 
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
+
+
+class BashExecDateParams(BaseModel):
+    format: str = Field(
+        "+%Y-%m-%d %H:%M:%S",
+        description="date コマンドに渡すフォーマット文字列。例: '+%Y-%m-%d' で日付のみ、'+%H:%M:%S' で時刻のみ。デフォルトは '+%Y-%m-%d %H:%M:%S'。",
+    )
 
 
 class Bash:
@@ -27,20 +35,7 @@ class Bash:
                     "date コマンドを実行して、現在の日付と時刻を取得します。"
                     "「今何時？」「今日は何日？」などの日時確認に使います。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "format": {
-                            "type": "string",
-                            "description": (
-                                "date コマンドに渡すフォーマット文字列。"
-                                "例: '+%Y-%m-%d' で日付のみ、'+%H:%M:%S' で時刻のみ。"
-                                "デフォルトは '+%Y-%m-%d %H:%M:%S'。"
-                            ),
-                        }
-                    },
-                    "required": [],
-                },
+                parameters=BashExecDateParams.model_json_schema(),
             ),
         ]
 

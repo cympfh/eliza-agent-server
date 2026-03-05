@@ -6,11 +6,22 @@ import hmac
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 import requests
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
+
+
+class SwitchbotEmptyParams(BaseModel):
+    pass
+
+
+class SwitchbotAirconOnParams(BaseModel):
+    mode: Literal["heat", "cool", "fan"] = Field(
+        description="エアコンのモード: heat=暖房, cool=冷房, fan=送風"
+    )
 
 
 class Switchbot:
@@ -156,34 +167,23 @@ class Switchbot:
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """Grok agent 用のツール定義を作成"""
+        empty = SwitchbotEmptyParams.model_json_schema()
 
         return [
             tool(
                 name="switchbot_get_room_temperature",
                 description="部屋の温度と湿度を取得します。室内の現在の気温と湿度を確認したいときに使います。",
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                },
+                parameters=empty,
             ),
             tool(
                 name="switchbot_get_outside_temperature",
                 description="家のすぐ外の温度と湿度を取得します。外の気温や湿度を確認したいときに使います。",
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                },
+                parameters=empty,
             ),
             tool(
                 name="switchbot_post_aircon_off",
                 description="エアコンを消します。部屋が暑すぎる、寒すぎる、または外出するときなどに使います。",
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                },
+                parameters=empty,
             ),
             tool(
                 name="switchbot_post_aircon_on",
@@ -191,35 +191,17 @@ class Switchbot:
                     "エアコンをつけます。mode で暖房(heat)/冷房(cool)/送風(fan) を選択できます。"
                     "部屋が寒いときは heat、暑いときは cool、少し蒸し暑い程度なら fan が適切です。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "mode": {
-                            "type": "string",
-                            "enum": ["heat", "cool", "fan"],
-                            "description": "エアコンのモード: heat=暖房, cool=冷房, fan=送風",
-                        }
-                    },
-                    "required": ["mode"],
-                },
+                parameters=SwitchbotAirconOnParams.model_json_schema(),
             ),
             tool(
                 name="switchbot_post_light_off",
                 description="家の中の全てのライトを消します。寝る前や外出するときに使います。",
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                },
+                parameters=empty,
             ),
             tool(
                 name="switchbot_post_light_on",
                 description="家の中の全てのライトをつけます。朝起きたときや帰宅したときに使います。",
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                },
+                parameters=empty,
             ),
         ]
 

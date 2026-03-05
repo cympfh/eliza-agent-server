@@ -130,7 +130,12 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
         # timestamp は ISO形式 "2026-03-04T12:34:56+09:00" など
         date_str = timestamp[:10]  # YYYY-MM-DD
         groups[date_str].append(
-            {"message_id": message_id, "timestamp": timestamp, "role": role, "content": content}
+            {
+                "message_id": message_id,
+                "timestamp": timestamp,
+                "role": role,
+                "content": content,
+            }
         )
 
     daily_summaries: list[dict] = []
@@ -164,7 +169,10 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
-            parsed = {"summary": raw[:500], "user_profile": {"interests": [], "tendencies": []}}
+            parsed = {
+                "summary": raw[:500],
+                "user_profile": {"interests": [], "tendencies": []},
+            }
 
         now_jst = datetime.now(JST).isoformat(timespec="seconds")
         daily_data = {
@@ -172,9 +180,13 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
             "num_messages": len(msgs),
             "messages": msg_ids,
             "summary": parsed.get("summary", ""),
-            "user_profile": parsed.get("user_profile", {"interests": [], "tendencies": []}),
+            "user_profile": parsed.get(
+                "user_profile", {"interests": [], "tendencies": []}
+            ),
         }
-        daily_file.write_text(json.dumps(daily_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        daily_file.write_text(
+            json.dumps(daily_data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         daily_summaries.append(daily_data)
         any_daily_updated = True
 
@@ -197,7 +209,10 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
     try:
         parsed_all = json.loads(raw_all)
     except json.JSONDecodeError:
-        parsed_all = {"summary": raw_all[:500], "user_profile": {"interests": [], "tendencies": []}}
+        parsed_all = {
+            "summary": raw_all[:500],
+            "user_profile": {"interests": [], "tendencies": []},
+        }
 
     total_msgs = sum(len(list(v)) for v in groups.values())
     now_jst = datetime.now(JST).isoformat(timespec="seconds")
@@ -205,8 +220,12 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
         "created_datetime": now_jst,
         "num_messages": total_msgs,
         "summary": parsed_all.get("summary", ""),
-        "user_profile": parsed_all.get("user_profile", {"interests": [], "tendencies": []}),
+        "user_profile": parsed_all.get(
+            "user_profile", {"interests": [], "tendencies": []}
+        ),
     }
-    ALL_SUMMARY_FILE.write_text(json.dumps(all_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    ALL_SUMMARY_FILE.write_text(
+        json.dumps(all_data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     return all_data

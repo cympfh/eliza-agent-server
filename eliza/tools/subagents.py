@@ -8,6 +8,7 @@ from typing import Any
 import xai_sdk
 import xai_sdk.chat
 import xai_sdk.tools
+from pydantic import BaseModel, Field
 from xai_sdk.proto import chat_pb2
 
 
@@ -16,6 +17,12 @@ class SubAgentResponse:
     name: str
     model: str
     answer: str
+
+
+class SubAgentsAskParams(BaseModel):
+    question: str = Field(
+        description="質問内容。エージェントに聞きたいことを具体的に書いてください。"
+    )
 
 
 class SubAgents:
@@ -116,16 +123,7 @@ class SubAgents:
                     "深く考える必要がある質問や、複数の視点からの回答が欲しい場合に使います。"
                     "実行には1分程度かかります。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "question": {
-                            "type": "string",
-                            "description": "質問内容。エージェントに聞きたいことを具体的に書いてください。",
-                        },
-                    },
-                    "required": ["question"],
-                },
+                parameters=SubAgentsAskParams.model_json_schema(),
             ),
         ]
 

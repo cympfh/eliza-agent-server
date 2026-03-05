@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
@@ -59,6 +60,10 @@ def _parse_skill_md(content: str) -> tuple[str, str, str]:
     return name, description, instruction
 
 
+class SkillUseParams(BaseModel):
+    skill_name: str = Field(description="使用するスキルの名前")
+
+
 class Skill:
     """スキルツール"""
 
@@ -96,16 +101,7 @@ class Skill:
                     "Skill がある場合は必ず skill_use を呼び出して手順を取得し、その手順に従って実行してください。\n"
                     "Skill を使わずに tool を直接呼び出すことは非推奨です。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "skill_name": {
-                            "type": "string",
-                            "description": "使用するスキルの名前",
-                        },
-                    },
-                    "required": ["skill_name"],
-                },
+                parameters=SkillUseParams.model_json_schema(),
             ),
         ]
 

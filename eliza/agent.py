@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Template
+from pydantic import BaseModel, Field
 from xai_sdk import Client, chat
 
 import eliza.memory
@@ -14,16 +15,20 @@ logger = logging.getLogger(__name__)
 PROMPT_DIR = Path(__file__).parent / "prompt"
 
 
-class AgentResponse:
-    def __init__(
-        self,
-        content: str,
-        sleep: bool,
-        tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]],
-    ):
-        self.content = content
-        self.sleep = sleep
-        self.tool_history = tool_history
+class AgentAnswer(BaseModel):
+    reasoning: str = Field(
+        description="回答を導くにあたっての思考過程・推論。ユーザーには見せない"
+    )
+    answer: str = Field(
+        description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
+    )
+
+
+class AgentResponse(BaseModel):
+    content: str
+    reasoning: str
+    sleep: bool
+    tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]]
 
 
 class Agent:
@@ -198,9 +203,14 @@ class Agent:
             else:
                 break
 
-        sleep = detect_sleep and "[SLEEP]" in response.content
+        # 最終回答を structured output で生成
+        logger.info(f"[REQUEST ID: {request_id}] Generating final structured answer...")
+        _, agent_answer = session.parse(AgentAnswer)
+
+        sleep = detect_sleep and "[SLEEP]" in agent_answer.answer
         return AgentResponse(
-            content=response.content,
+            content=agent_answer.answer,
+            reasoning=agent_answer.reasoning,
             sleep=sleep,
             tool_history=tool_history,
         )

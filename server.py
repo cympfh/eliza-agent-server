@@ -72,6 +72,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     message: Message
+    reasoning: str | None = None
     sleep: bool = False
     tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
 
@@ -161,6 +162,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
             return ChatResponse(
                 message=response_message,
+                reasoning=result.reasoning,
                 sleep=result.sleep,
                 tool=result.tool_history if result.tool_history else None,
             )

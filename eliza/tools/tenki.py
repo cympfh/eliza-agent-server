@@ -3,6 +3,7 @@
 from typing import Any
 
 import requests
+from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
@@ -12,6 +13,14 @@ BASE_URL = "http://api.openweathermap.org/data/2.5"
 
 def _kelvin_to_celsius(k: float) -> float:
     return round(k - 273.15, 1)
+
+
+class TenkiCurrentParams(BaseModel):
+    city: str = Field(description="都市名 (英語, 例: Tokyo, Osaka, London, New York)")
+
+
+class TenkiForecastParams(BaseModel):
+    city: str = Field(description="都市名 (英語, 例: Tokyo, Osaka, London, New York)")
 
 
 class Tenki:
@@ -98,16 +107,7 @@ class Tenki:
                     "「今日の天気は？」「東京の天気を教えて」などに使います。"
                     " city は英語の都市名 (例: Tokyo, Osaka, London) で指定してください。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "city": {
-                            "type": "string",
-                            "description": "都市名 (英語, 例: Tokyo, Osaka, London, New York)",
-                        },
-                    },
-                    "required": ["city"],
-                },
+                parameters=TenkiCurrentParams.model_json_schema(),
             ),
             tool(
                 name="tenki_forecast",
@@ -116,16 +116,7 @@ class Tenki:
                     "「今週の天気は？」「明日の天気は？」「天気予報を見せて」などに使います。"
                     " city は英語の都市名 (例: Tokyo, Osaka, London) で指定してください。"
                 ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "city": {
-                            "type": "string",
-                            "description": "都市名 (英語, 例: Tokyo, Osaka, London, New York)",
-                        },
-                    },
-                    "required": ["city"],
-                },
+                parameters=TenkiForecastParams.model_json_schema(),
             ),
         ]
 
