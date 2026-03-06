@@ -230,7 +230,7 @@ https://docs.x.ai/developers/tools/function-calling の "Defining Tools with Pyd
 - ChatRequest に `deep: bool = False` を追加 (デフォルトは False)
 - True のときに限り skill の deep_research を追加する
 
-## [ ] interact の追加
+## [x] interact の追加 [2026-03-06 完了]
 
 - ChatRequest に `interact: bool = False` を追加 (デフォルトは False)
 - 一部のSKILLはユーザーとのやりとりを必要とするものがある

@@ -69,6 +69,7 @@ class ChatRequest(BaseModel):
     detect_sleep: bool = True
     max_tool_loops: int = 5
     deep: bool = False
+    interact: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -127,6 +128,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 model=request.model,
                 use_memory=request.use_memory,
                 deep=request.deep,
+                interact=request.interact,
             )
             result = agent.run(
                 messages=[

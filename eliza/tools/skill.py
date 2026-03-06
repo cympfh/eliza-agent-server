@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from jinja2 import Template
 from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
@@ -23,16 +24,17 @@ class SkillDef:
 _DEEP_ONLY_SKILLS = {"deep_research"}
 
 
-def _load_skills(deep: bool = False) -> list[SkillDef]:
+def _load_skills(deep: bool = False, interact: bool = False) -> list[SkillDef]:
     """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す。
-    deep=False のとき deep_research など deep 専用スキルは除外する。"""
+    deep=False のとき deep_research など deep 専用スキルは除外する。
+    スキル本文は Jinja2 テンプレートとして interact 変数を渡してレンダリングする。"""
     skills = []
     if not SKILL_DIR.exists():
         return skills
     for md_file in sorted(SKILL_DIR.glob("*.md")):
         try:
             content = md_file.read_text(encoding="utf-8")
-            name, description, instruction = _parse_skill_md(content)
+            name, description, instruction = _parse_skill_md(content, interact=interact)
             if name and description:
                 if not deep and name in _DEEP_ONLY_SKILLS:
                     continue
@@ -46,8 +48,8 @@ def _load_skills(deep: bool = False) -> list[SkillDef]:
     return skills
 
 
-def _parse_skill_md(content: str) -> tuple[str, str, str]:
-    """frontmatter から name/description を取得し、残りを instruction として返す"""
+def _parse_skill_md(content: str, interact: bool = False) -> tuple[str, str, str]:
+    """frontmatter から name/description を取得し、残りを Jinja2 テンプレートとしてレンダリングして返す"""
     name = ""
     description = ""
     instruction = content
@@ -63,6 +65,7 @@ def _parse_skill_md(content: str) -> tuple[str, str, str]:
                 elif line.startswith("description:"):
                     description = line[len("description:") :].strip()
 
+    instruction = Template(instruction).render(interact=interact).strip()
     return name, description, instruction
 
 
@@ -73,16 +76,17 @@ class SkillUseParams(BaseModel):
 class Skill:
     """スキルツール"""
 
-    def __init__(self, deep: bool = False):
+    def __init__(self, deep: bool = False, interact: bool = False):
         self.deep = deep
+        self.interact = interact
 
     def skills(self) -> list[SkillDef]:
         """利用可能なスキル一覧を返す"""
-        return _load_skills(deep=self.deep)
+        return _load_skills(deep=self.deep, interact=self.interact)
 
     def skill_use(self, skill_name: str) -> dict[str, Any]:
         """スキルの instruction を返す"""
-        skills = _load_skills(deep=self.deep)
+        skills = _load_skills(deep=self.deep, interact=self.interact)
         for skill in skills:
             if skill.name == skill_name:
                 return {
@@ -94,7 +98,7 @@ class Skill:
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """skill_use ツールを返す"""
-        skills = _load_skills(deep=self.deep)
+        skills = _load_skills(deep=self.deep, interact=self.interact)
         if not skills:
             return []
         skill_list = "\n".join(f"- {s.name}" for s in skills)

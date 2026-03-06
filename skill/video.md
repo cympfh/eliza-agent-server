@@ -93,3 +93,5 @@ X(Twitter): https://x.com/MitoTsukino
 
 YouTube: https://www.youtube.com/@osadalife
 https://www.youtube.com/results?search_query=osadaおさだ
+
+「長田」とユーザーが言った場合はこの人を指している可能性が高い
