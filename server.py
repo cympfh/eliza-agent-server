@@ -156,9 +156,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             logger.info("[RESPONSE] Role: assistant")
             logger.info(f"[RESPONSE] Content length: {len(result.content)} chars")
             logger.info("[RESPONSE] Content:")
-            logger.info(
-                f"  {result.content[:500]}{'...' if len(result.content) > 500 else ''}"
-            )
+            logger.info(f"  {result.content}")
+            logger.info("[RESPONSE] Reasoning:")
+            logger.info(f"  {result.reasoning}")
             logger.info("=" * 80)
 
             response_message = Message(role="assistant", content=result.content)

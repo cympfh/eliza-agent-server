@@ -225,9 +225,7 @@ class Agent:
                         tool_name, tool_args, deep=self.deep, interact=self.interact
                     )
                     result_str = json.dumps(result, ensure_ascii=False)
-                    logger.info(
-                        f"[REQUEST ID: {request_id}] Tool result: {result_str[:500]}{'...' if len(result_str) > 500 else ''}"
-                    )
+                    logger.info(f"[REQUEST ID: {request_id}] Tool result: {result_str}")
                     tool_history.append(
                         ({"name": tool_name, "args": tool_args}, result)
                     )
@@ -249,7 +247,8 @@ class Agent:
                 session.append(
                     chat.system(
                         self._load_prompt(
-                            "TOOL_LOOP_INSTRUCTION.md", remaining=remaining
+                            "TOOL_LOOP_INSTRUCTION.md",
+                            remaining=remaining,
                         )
                     )
                 )
