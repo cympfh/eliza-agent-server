@@ -23,6 +23,15 @@ CACHE_DIR = Path("/tmp/eliza_youtube_cache")
 
 
 def _cache_file(keyword: str, order: str) -> Path:
+    """検索キャッシュファイルのパスを返す
+
+    Parameters
+    ----------
+    keyword
+        検索キーワード
+    order
+        並び順
+    """
     key = hashlib.sha256(f"{keyword}\0{order}".encode()).hexdigest()
     return CACHE_DIR / f"search_{key}.json"
 
@@ -102,11 +111,16 @@ class YouTubeSearch:
     ) -> dict[str, Any]:
         """YouTube でキーワード検索して動画一覧を返す
 
-        Args:
-            keyword: 検索キーワード
-            limit: 取得件数 (最大10)
-            order: 並び順 (date/rating/relevance/title/videoCount/viewCount)
-            browser_open: True のとき先頭の動画をブラウザで開く
+        Parameters
+        ----------
+        keyword
+            検索キーワード
+        limit
+            取得件数 (最大10)
+        order
+            並び順 (date/rating/relevance/title/videoCount/viewCount)
+        browser_open
+            True のとき先頭の動画をブラウザで開く
         """
         if not YOUTUBE_API_KEY:
             return {"error": "YOUTUBE_API_KEY is not set"}

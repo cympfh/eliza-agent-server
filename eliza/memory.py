@@ -23,7 +23,17 @@ XAI_API_KEY = os.environ.get("XAI_API_KEY")
 def _call_grok(
     system_prompt: str, user_message: str, model: str = "grok-3-fast"
 ) -> str:
-    """Grok に問い合わせてレスポンスを返す"""
+    """Grok に問い合わせてレスポンスを返す
+
+    Parameters
+    ----------
+    system_prompt
+        システムプロンプト
+    user_message
+        ユーザーメッセージ
+    model
+        使用する Grok モデル名
+    """
     client = Client(api_key=XAI_API_KEY)
     session = client.chat.create(model=model)
     session.append(chat.system(system_prompt))
@@ -33,7 +43,10 @@ def _call_grok(
 
 
 def _init_db() -> None:
-    """SQLite DB を初期化する"""
+    """SQLite DB を初期化する
+
+    テーブルが未作成なら作成する
+    """
     MEMORY_DIR.mkdir(exist_ok=True)
     with sqlite3.connect(MESSAGES_DB) as conn:
         conn.execute(
@@ -50,11 +63,14 @@ def _init_db() -> None:
 
 
 def save_messages(messages: list[dict]) -> None:
-    """
-    メッセージリストを SQLite に保存する。重複は INSERT OR IGNORE でスキップ。
+    """メッセージリストを SQLite に保存する
 
-    Args:
-        messages: {message_id, timestamp, role, content} の dict リスト
+    重複は INSERT OR IGNORE でスキップ
+
+    Parameters
+    ----------
+    messages
+        {message_id, timestamp, role, content} の dict リスト
     """
     _init_db()
     with sqlite3.connect(MESSAGES_DB) as conn:
@@ -69,7 +85,11 @@ def save_messages(messages: list[dict]) -> None:
 
 
 def get() -> dict | None:
-    """.memory/summary/all.json の中身を dict で返す。ファイルが存在しない場合は None を返す。"""
+    """メモリのサマリを返す
+
+    .memory/summary/all.json の中身を dict で返す
+    ファイルが存在しない場合は None を返す
+    """
     if not ALL_SUMMARY_FILE.exists():
         return None
     try:
@@ -79,9 +99,17 @@ def get() -> dict | None:
 
 
 def grep(pattern: str, limit: int = 10) -> list[dict]:
-    """
-    日別 summary ファイルの summary テキストを正規表現で検索し、
-    マッチした日別 summary を新しい順で最大 limit 件返す。
+    """メモリの検索
+
+    日別 summary の summary テキストを正規表現で検索
+    マッチした結果を新しい順で返す
+
+    Parameters
+    ----------
+    pattern
+        検索する正規表現パターン
+    limit
+        返す最大件数
     """
     if not SUMMARY_DIR.exists():
         return []
@@ -106,12 +134,15 @@ def grep(pattern: str, limit: int = 10) -> list[dict]:
 
 
 def generate_summary(model: str = "grok-4-1-fast") -> dict:
-    """
-    SQLite から全メッセージを取得し、日別・全期間の summary を生成して返す。
+    """SQLite の全メッセージから日別・全期間の summary を生成して返す
 
-    1. 日付ごとにグループ化し、各日付の summary を生成（キャッシュあり）
-    2. 全日別 summary をまとめて all summary を生成
-    3. all_data を返す
+    日付ごとにグループ化して各日の summary を生成しキャッシュする
+    いずれかの日別 summary が更新された場合のみ全期間 summary を再生成する
+
+    Parameters
+    ----------
+    model
+        summary 生成に使用する Grok モデル名
     """
     _init_db()
     SUMMARY_DIR.mkdir(parents=True, exist_ok=True)

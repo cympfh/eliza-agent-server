@@ -16,6 +16,17 @@ class SkillDef:
     """スキル定義"""
 
     def __init__(self, name: str, description: str, instruction: str):
+        """スキル定義を初期化する
+
+        Parameters
+        ----------
+        name
+            スキル名
+        description
+            スキルの説明
+        instruction
+            スキルの実行手順
+        """
         self.name = name
         self.description = description
         self.instruction = instruction
@@ -25,9 +36,17 @@ _DEEP_ONLY_SKILLS = {"deep_research"}
 
 
 def _load_skills(deep: bool = False, interact: bool = False) -> list[SkillDef]:
-    """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す。
-    deep=False のとき deep_research など deep 専用スキルは除外する。
-    スキル本文は Jinja2 テンプレートとして interact 変数を渡してレンダリングする。"""
+    """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す
+
+    スキル本文は Jinja2 テンプレートとして interact 変数を渡してレンダリングする
+
+    Parameters
+    ----------
+    deep
+        False のとき deep_research など deep 専用スキルを除外する
+    interact
+        スキルテンプレートに渡す interact フラグ
+    """
     skills = []
     if not SKILL_DIR.exists():
         return skills
@@ -49,7 +68,15 @@ def _load_skills(deep: bool = False, interact: bool = False) -> list[SkillDef]:
 
 
 def _parse_skill_md(content: str, interact: bool = False) -> tuple[str, str, str]:
-    """frontmatter から name/description を取得し、残りを Jinja2 テンプレートとしてレンダリングして返す"""
+    """frontmatter から name/description を取得し 残りを Jinja2 テンプレートとしてレンダリングして返す
+
+    Parameters
+    ----------
+    content
+        スキル .md ファイルの全文
+    interact
+        テンプレートに渡す interact フラグ
+    """
     name = ""
     description = ""
     instruction = content
@@ -77,6 +104,15 @@ class Skill:
     """スキルツール"""
 
     def __init__(self, deep: bool = False, interact: bool = False):
+        """スキルツールを初期化する
+
+        Parameters
+        ----------
+        deep
+            True のとき deep_research など deep 専用スキルを含める
+        interact
+            True のとき スキルの instruction を interact モードでレンダリングする
+        """
         self.deep = deep
         self.interact = interact
 

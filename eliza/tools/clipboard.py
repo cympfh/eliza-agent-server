@@ -24,8 +24,10 @@ class Clipboard:
     def copy(self, text: str) -> dict[str, Any]:
         """テキストをクリップボードにコピーする
 
-        Args:
-            text: コピーするテキスト
+        Parameters
+        ----------
+        text
+            コピーするテキスト
         """
         result = subprocess.run(
             [CLIP_CMD],

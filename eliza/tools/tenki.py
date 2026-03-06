@@ -12,6 +12,13 @@ BASE_URL = "http://api.openweathermap.org/data/2.5"
 
 
 def _kelvin_to_celsius(k: float) -> float:
+    """ケルビンを摂氏に変換する
+
+    Parameters
+    ----------
+    k
+        ケルビン値
+    """
     return round(k - 273.15, 1)
 
 
@@ -29,8 +36,10 @@ class Tenki:
     def current(self, city: str) -> dict[str, Any]:
         """指定都市の現在の天気を取得する
 
-        Args:
-            city: 都市名 (例: Tokyo, Osaka, London)
+        Parameters
+        ----------
+        city
+            都市名 (例: Tokyo, Osaka, London)
         """
         resp = requests.get(
             f"{BASE_URL}/weather",
@@ -70,8 +79,10 @@ class Tenki:
     def forecast(self, city: str) -> dict[str, Any]:
         """指定都市の5日間天気予報を取得する (3時間ごと)
 
-        Args:
-            city: 都市名 (例: Tokyo, Osaka, London)
+        Parameters
+        ----------
+        city
+            都市名 (例: Tokyo, Osaka, London)
         """
         resp = requests.get(
             f"{BASE_URL}/forecast",

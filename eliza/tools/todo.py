@@ -13,6 +13,7 @@ TODO_FILE = ".memory/todo.json"
 
 
 def _load() -> list[dict]:
+    """TODO_FILE から ToDo リストを読み込む"""
     if not os.path.exists(TODO_FILE):
         return []
     with open(TODO_FILE) as f:
@@ -20,6 +21,13 @@ def _load() -> list[dict]:
 
 
 def _save(todos: list[dict]):
+    """ToDo リストを TODO_FILE に書き込む
+
+    Parameters
+    ----------
+    todos
+        保存する ToDo リスト
+    """
     os.makedirs(os.path.dirname(TODO_FILE), exist_ok=True)
     with open(TODO_FILE, "w") as f:
         json.dump(todos, f, ensure_ascii=False, indent=2)

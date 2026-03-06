@@ -39,10 +39,14 @@ class Alarm:
     ) -> dict[str, Any]:
         """指定時刻にアラームをセットする
 
-        Args:
-            time: HH:MM 形式の時刻
-            sound: アラーム音 (beep/bell/chime/siren/pulse)
-            auto_stop: 自動停止秒数 (0以下なら自動停止しない)
+        Parameters
+        ----------
+        time
+            HH:MM 形式の時刻
+        sound
+            アラーム音 (beep/bell/chime/siren/pulse)
+        auto_stop
+            自動停止秒数 (0以下なら自動停止しない)
         """
         if not BROWSER_PATH:
             return {
@@ -63,9 +67,12 @@ class Alarm:
     ) -> dict[str, Any]:
         """現在時刻から指定分後にアラームをセットする
 
-        Args:
-            minutes: 何分後か
-            sound: アラーム音 (beep/bell/chime/siren/pulse)
+        Parameters
+        ----------
+        minutes
+            何分後か
+        sound
+            アラーム音 (beep/bell/chime/siren/pulse)
         """
         target = datetime.now() + timedelta(minutes=minutes)
         time_str = target.strftime("%H:%M:%S")

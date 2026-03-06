@@ -19,10 +19,12 @@ class Browser:
     """ブラウザでURLを開くツール"""
 
     def url_open(self, url: str) -> dict[str, Any]:
-        """指定したURLをブラウザで開く
+        """指定した URL をブラウザで開く
 
-        Args:
-            url: 開くURL
+        Parameters
+        ----------
+        url
+            開く URL
         """
         if not BROWSER_PATH:
             return {

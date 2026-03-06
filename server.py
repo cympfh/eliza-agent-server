@@ -35,6 +35,13 @@ SWITCHBOT_API_SECRET = os.environ.get("SWITCHBOT_API_SECRET")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI アプリのライフサイクル管理
+
+    Parameters
+    ----------
+    app
+        FastAPI アプリインスタンス
+    """
     logger.info("Eliza Agent Server starting up...")
     yield
     logger.info("Eliza Agent Server shutting down gracefully...")
@@ -86,9 +93,14 @@ class SummaryResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 async def post_chat(request: ChatRequest) -> ChatResponse:
-    """
-    会話履歴を受け取り、次の返答を生成します。
-    サーバーは状態を持たず、毎回の呼び出しで完全な会話履歴を受け取ります。
+    """会話履歴を受け取り次の返答を生成する
+
+    サーバーは状態を持たず毎回の呼び出しで完全な会話履歴を受け取る
+
+    Parameters
+    ----------
+    request
+        チャットリクエスト (messages, model, オプション群を含む)
     """
     request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
 
@@ -205,9 +217,14 @@ def _generate_summary_in_background(request_id: str):
 
 @app.post("/summary", status_code=202, response_model=SummaryResponse)
 async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
-    """
-    メモリ要約を生成します。
-    処理はバックグラウンドで実行され、即座に 202 Accepted を返します。
+    """メモリ要約をバックグラウンドで生成する
+
+    処理はバックグラウンドで実行され即座に 202 Accepted を返す
+
+    Parameters
+    ----------
+    background_tasks
+        FastAPI の BackgroundTasks インスタンス
     """
     request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
 

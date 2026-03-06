@@ -45,6 +45,21 @@ class Agent:
         deep: bool = False,
         interact: bool = False,
     ):
+        """エージェントを初期化する
+
+        Parameters
+        ----------
+        api_key
+            xAI API キー
+        model
+            使用する Grok モデル名
+        use_memory
+            True のとき memory summary をプロンプトに差し込む
+        deep
+            True のとき deep_research スキルを有効にする
+        interact
+            True のとき スキルを interact モードでレンダリングする
+        """
         self.api_key = api_key
         self.model = model
         self.use_memory = use_memory
@@ -52,6 +67,17 @@ class Agent:
         self.interact = interact
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
+        """プロンプトを読んで返す
+
+        prompt ディレクトリのテンプレートファイルを Jinja2 でレンダリングして返す
+
+        Parameters
+        ----------
+        filename
+            prompt ディレクトリ内のファイル名
+        **kwargs
+            テンプレートに渡す変数
+        """
         path = PROMPT_DIR / filename
         return Template(path.read_text(encoding="utf-8")).render(**kwargs).strip()
 
@@ -129,6 +155,19 @@ class Agent:
         max_tool_loops: int = 5,
         detect_sleep: bool = True,
     ) -> AgentResponse:
+        """会話履歴を受け取りエージェントの応答を生成する
+
+        Parameters
+        ----------
+        messages
+            会話履歴 (role と content を持つ dict のリスト)
+        request_id
+            ログ追跡用のリクエスト ID
+        max_tool_loops
+            tool calling ループの最大回数
+        detect_sleep
+            True のとき sleep 検出プロンプトを差し込む
+        """
         client = Client(api_key=self.api_key)
 
         available_tools = eliza.tools.create_tools(

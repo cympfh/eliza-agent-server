@@ -50,6 +50,7 @@ class Switchbot:
         }
 
     def __init__(self):
+        """Switchbot クライアントを初期化して認証する"""
         self._auth()
 
     def get(self, uri: str):
@@ -95,12 +96,12 @@ class Switchbot:
         return self.send_command(device_id, command)
 
     def post_aircon_on(self, mode: str) -> dict[str, Any]:
-        """エアコンをつけるコマンドを送信
+        """エアコンをつけるコマンドを送信する
 
-        mode:
-          "heat" -> 暖房 (26C, fan=auto)
-          "cool" -> 冷房 (24C, fan=auto)
-          "fan"  -> 送風 (25C)
+        Parameters
+        ----------
+        mode
+            "heat" -> 暖房 (26C, fan=auto) / "cool" -> 冷房 (24C, fan=auto) / "fan" -> 送風 (25C)
         """
         device_id = "02-202010092320-98867876"
         if mode == "cool":

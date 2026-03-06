@@ -29,6 +29,7 @@ class SubAgents:
     """他のエージェントに質問するためのツール"""
 
     def __init__(self):
+        """SubAgents ツールを初期化する"""
         pass
 
     def _ask_grok(
