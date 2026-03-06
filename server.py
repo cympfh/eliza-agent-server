@@ -75,6 +75,7 @@ class ChatResponse(BaseModel):
     reasoning: str | None = None
     sleep: bool = False
     tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
+    citations: list[str] = Field(default_factory=list)
 
 
 class SummaryResponse(BaseModel):
@@ -165,6 +166,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 reasoning=result.reasoning,
                 sleep=result.sleep,
                 tool=result.tool_history if result.tool_history else None,
+                citations=result.citations,
             )
 
         except Exception as e:

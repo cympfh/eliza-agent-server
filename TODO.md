@@ -215,3 +215,12 @@ ChatRequest で default は 5 にする
 
 https://docs.x.ai/developers/tools/function-calling の "Defining Tools with Pydantic" 参考
 各ツールファイルに `BaseModel` + `Field` でパラメータモデルを定義し、`create_tools()` 内の手書き JSON Schema dict を `ModelClass.model_json_schema()` に置き換えた。
+
+## [x] :rocket: Agent Quality [2026-03-06 完了]
+
+- AgentAnswer に citations を追加する
+    - `citations: list[str]` を `AgentAnswer` / `AgentResponse` / `ChatResponse` に追加。
+    - `Field(description=...)` で「参照した URL のリスト。なければ空リスト」と説明を付けた。
+- server-side tool は無視
+    - function call と見なさない
+- function call があっても response.content があったら「仮説」だとして与える

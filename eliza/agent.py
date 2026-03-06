@@ -22,6 +22,10 @@ class AgentAnswer(BaseModel):
     answer: str = Field(
         description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
     )
+    citations: list[str] = Field(
+        default_factory=list,
+        description="回答の根拠にした URL のリスト。参照した Web ページや検索結果の URL を含める。なければ空リスト。",
+    )
 
 
 class AgentResponse(BaseModel):
@@ -29,6 +33,7 @@ class AgentResponse(BaseModel):
     reasoning: str
     sleep: bool
     tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]]
+    citations: list[str]
 
 
 class Agent:
@@ -163,6 +168,9 @@ class Agent:
                     logger.info(
                         f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
                     )
+                    if eliza.tools.is_server_side(tool_name):
+                        continue
+                    # Client-side tool calling
                     result = eliza.tools.call(tool_name, tool_args)
                     result_str = json.dumps(result, ensure_ascii=False)
                     logger.info(
@@ -181,6 +189,11 @@ class Agent:
                     logger.warning(
                         f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
                     )
+                if response.content:
+                    session.append(
+                        chat.assistant(f"ここまでの仮説: {response.content}")
+                    )
+
                 session.append(
                     chat.system(
                         self._load_prompt(
@@ -213,4 +226,5 @@ class Agent:
             reasoning=agent_answer.reasoning,
             sleep=sleep,
             tool_history=tool_history,
+            citations=agent_answer.citations,
         )

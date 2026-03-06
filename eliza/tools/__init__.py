@@ -18,6 +18,15 @@ from .todo import ToDo
 from .youtube import YouTubeSearch
 
 
+def is_server_side(tool_name: str) -> bool:
+    """Check if a tool is server-side (i.e., does not return a result to the agent)"""
+    return (
+        tool_name.startswith("x_")
+        or tool_name.startswith("web_")
+        or tool_name.startswith("code_")
+    )
+
+
 def create_tools() -> list[chat_pb2.Tool]:
     """Create tools for Grok agent"""
     available_tools = [tools.x_search(), tools.web_search(), tools.code_execution()]
@@ -73,12 +82,9 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             or tool_name.startswith("web_")
             or tool_name.startswith("code_")
         ):
-            return {
-                "success": True,
-                "message": "This tool is a server-side. The result is omitted.",
-            }
+            raise ValueError("Server-side tools should not be called from the agent")
         case _:
-            return None
+            raise ValueError(f"Unknown tool: {tool_name}")
 
 
 __all__ = [
