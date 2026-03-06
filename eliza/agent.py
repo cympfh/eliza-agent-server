@@ -244,6 +244,15 @@ class Agent:
                         chat.assistant(f"ここまでの仮説: {response.content}")
                     )
 
+                skill_just_used = any(
+                    t[0]["name"] == "skill_use"
+                    for t in tool_history[-len(response.tool_calls):]
+                )
+                if skill_just_used:
+                    session.append(
+                        chat.system(self._load_prompt("SKILL_FETCHED_INSTRUCTION.md"))
+                    )
+
                 session.append(
                     chat.system(
                         self._load_prompt(
@@ -269,6 +278,15 @@ class Agent:
 
         # 最終回答を structured output で生成
         logger.info(f"[REQUEST ID: {request_id}] Generating final structured answer...")
+        executed = [t[0]["name"] for t in tool_history if t[0]["name"] != "skill_use"]
+        if executed:
+            session.append(
+                chat.system(f"実際に実行したツール: {', '.join(executed)}")
+            )
+        else:
+            session.append(
+                chat.system("実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。")
+            )
         _, agent_answer = session.parse(AgentAnswer)
 
         sleep = detect_sleep and "[SLEEP]" in agent_answer.answer

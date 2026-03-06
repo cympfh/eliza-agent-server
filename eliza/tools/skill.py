@@ -128,7 +128,7 @@ class Skill:
                 return {
                     "name": skill.name,
                     "instruction": skill.instruction,
-                    "next_step": "この手順に従ってタスクを tool に分解し実行してください。",
+                    "next_step": "これはツールの手順書になります。この手順に従い tool をあなたが実行してください",
                 }
         return {"error": f"Skill '{skill_name}' not found"}
 
