@@ -37,10 +37,13 @@ class AgentResponse(BaseModel):
 
 
 class Agent:
-    def __init__(self, api_key: str, model: str, use_memory: bool = True):
+    def __init__(
+        self, api_key: str, model: str, use_memory: bool = True, deep: bool = False
+    ):
         self.api_key = api_key
         self.model = model
         self.use_memory = use_memory
+        self.deep = deep
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
         path = PROMPT_DIR / filename
@@ -82,7 +85,7 @@ class Agent:
 
     def _inject_skill_summary(self, session: Any, request_id: str) -> None:
         """skill summary を system メッセージとして差し込む"""
-        skills = eliza.tools.Skill().skills()
+        skills = eliza.tools.Skill(deep=self.deep).skills()
         if skills:
             logger.info(
                 f"[REQUEST ID: {request_id}] Injecting skill summary as system message..."
@@ -122,7 +125,7 @@ class Agent:
     ) -> AgentResponse:
         client = Client(api_key=self.api_key)
 
-        available_tools = eliza.tools.create_tools()
+        available_tools = eliza.tools.create_tools(deep=self.deep)
         logger.info(
             f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
         )
@@ -171,7 +174,7 @@ class Agent:
                     if eliza.tools.is_server_side(tool_name):
                         continue
                     # Client-side tool calling
-                    result = eliza.tools.call(tool_name, tool_args)
+                    result = eliza.tools.call(tool_name, tool_args, deep=self.deep)
                     result_str = json.dumps(result, ensure_ascii=False)
                     logger.info(
                         f"[REQUEST ID: {request_id}] Tool result: {result_str[:500]}{'...' if len(result_str) > 500 else ''}"

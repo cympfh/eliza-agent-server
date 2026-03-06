@@ -224,3 +224,27 @@ https://docs.x.ai/developers/tools/function-calling の "Defining Tools with Pyd
 - server-side tool は無視
     - function call と見なさない
 - function call があっても response.content があったら「仮説」だとして与える
+
+## [x] deep オプションの追加 [2026-03-06 完了]
+
+- ChatRequest に `deep: bool = False` を追加 (デフォルトは False)
+- True のときに限り skill の deep_research を追加する
+
+## [ ] interact の追加
+
+- ChatRequest に `interact: bool = False` を追加 (デフォルトは False)
+- 一部のSKILLはユーザーとのやりとりを必要とするものがある
+    - 一旦「次どうしますか？」と聞いて、ユーザーからのレスポンスを受け取ってから次のステップに進むようなものがある
+- interact によってSKILL の説明を変えたい
+- というわけで SKILL (*.md) は実は Jinja2 テンプレートだったことにする
+    - SKILL を読むときは Jinja2 でレンダリングしてから解釈する
+    - ここで interact という値を渡す
+    - SKILL 内で `{% if interact %}ユーザーとのやりとりが必要な場合は、適宜ユーザーに質問してください。{% endif %}` みたいに条件分岐できるようにする
+
+## [ ] docstring の整備
+
+全てのトップクラス関数は numpydoc スタイルの docstring が必要。
+簡潔な日本語で関数と引数の説明を書くこと。
+Return は不要。
+絶対に句読点を使わないこと
+和文と英文が混在するときは半角スペースで区切ること

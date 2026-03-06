@@ -20,8 +20,12 @@ class SkillDef:
         self.instruction = instruction
 
 
-def _load_skills() -> list[SkillDef]:
-    """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す"""
+_DEEP_ONLY_SKILLS = {"deep_research"}
+
+
+def _load_skills(deep: bool = False) -> list[SkillDef]:
+    """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す。
+    deep=False のとき deep_research など deep 専用スキルは除外する。"""
     skills = []
     if not SKILL_DIR.exists():
         return skills
@@ -30,6 +34,8 @@ def _load_skills() -> list[SkillDef]:
             content = md_file.read_text(encoding="utf-8")
             name, description, instruction = _parse_skill_md(content)
             if name and description:
+                if not deep and name in _DEEP_ONLY_SKILLS:
+                    continue
                 skills.append(
                     SkillDef(
                         name=name, description=description, instruction=instruction
@@ -67,13 +73,16 @@ class SkillUseParams(BaseModel):
 class Skill:
     """スキルツール"""
 
+    def __init__(self, deep: bool = False):
+        self.deep = deep
+
     def skills(self) -> list[SkillDef]:
         """利用可能なスキル一覧を返す"""
-        return _load_skills()
+        return _load_skills(deep=self.deep)
 
     def skill_use(self, skill_name: str) -> dict[str, Any]:
         """スキルの instruction を返す"""
-        skills = _load_skills()
+        skills = _load_skills(deep=self.deep)
         for skill in skills:
             if skill.name == skill_name:
                 return {
@@ -85,7 +94,7 @@ class Skill:
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """skill_use ツールを返す"""
-        skills = _load_skills()
+        skills = _load_skills(deep=self.deep)
         if not skills:
             return []
         skill_list = "\n".join(f"- {s.name}" for s in skills)

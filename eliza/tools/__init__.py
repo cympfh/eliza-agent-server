@@ -27,7 +27,7 @@ def is_server_side(tool_name: str) -> bool:
     )
 
 
-def create_tools() -> list[chat_pb2.Tool]:
+def create_tools(deep: bool = False) -> list[chat_pb2.Tool]:
     """Create tools for Grok agent"""
     available_tools = [tools.x_search(), tools.web_search(), tools.code_execution()]
     try:
@@ -44,14 +44,14 @@ def create_tools() -> list[chat_pb2.Tool]:
     available_tools.extend(Browser().create_tools())
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
-    available_tools.extend(Skill().create_tools())
+    available_tools.extend(Skill(deep=deep).create_tools())
     available_tools.extend(SubAgents().create_tools())
     available_tools.extend(Tenki().create_tools())
     available_tools.extend(ToDo().create_tools())
     return available_tools
 
 
-def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
+def call(tool_name: str, tool_args: dict, deep: bool = False) -> dict[str, Any] | None:
     """Call any tool by name"""
     match tool_name:
         case _ if tool_name.startswith("switchbot_"):
@@ -72,7 +72,7 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
         case _ if tool_name.startswith("skill_"):
-            return Skill().call(tool_name, tool_args)
+            return Skill(deep=deep).call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):
             return ToDo().call(tool_name, tool_args)
         case _ if tool_name.startswith("subagents_"):

@@ -68,6 +68,7 @@ class ChatRequest(BaseModel):
     use_memory: bool = True
     detect_sleep: bool = True
     max_tool_loops: int = 5
+    deep: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -125,6 +126,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 api_key=XAI_API_KEY,
                 model=request.model,
                 use_memory=request.use_memory,
+                deep=request.deep,
             )
             result = agent.run(
                 messages=[
