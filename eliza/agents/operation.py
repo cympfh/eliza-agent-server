@@ -9,10 +9,11 @@ from xai_sdk import Client, chat
 
 import eliza.memory
 import eliza.tools
+from eliza.models import HEAVY_MODEL
 
 logger = logging.getLogger(__name__)
 
-PROMPT_DIR = Path(__file__).parent / "prompt"
+PROMPT_DIR = Path(__file__).parent.parent / "prompt"
 
 
 class AgentAnswer(BaseModel):
@@ -40,7 +41,6 @@ class Agent:
     def __init__(
         self,
         api_key: str,
-        model: str,
         use_memory: bool = True,
         deep: bool = False,
         interact: bool = False,
@@ -51,8 +51,6 @@ class Agent:
         ----------
         api_key
             xAI API キー
-        model
-            使用する Grok モデル名
         use_memory
             True のとき memory summary をプロンプトに差し込む
         deep
@@ -61,7 +59,7 @@ class Agent:
             True のとき スキルを interact モードでレンダリングする
         """
         self.api_key = api_key
-        self.model = model
+        self.model = HEAVY_MODEL
         self.use_memory = use_memory
         self.deep = deep
         self.interact = interact
@@ -246,7 +244,7 @@ class Agent:
 
                 skill_just_used = any(
                     t[0]["name"] == "skill_use"
-                    for t in tool_history[-len(response.tool_calls):]
+                    for t in tool_history[-len(response.tool_calls) :]
                 )
                 if skill_just_used:
                     session.append(
@@ -280,12 +278,12 @@ class Agent:
         logger.info(f"[REQUEST ID: {request_id}] Generating final structured answer...")
         executed = [t[0]["name"] for t in tool_history if t[0]["name"] != "skill_use"]
         if executed:
-            session.append(
-                chat.system(f"実際に実行したツール: {', '.join(executed)}")
-            )
+            session.append(chat.system(f"実際に実行したツール: {', '.join(executed)}"))
         else:
             session.append(
-                chat.system("実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。")
+                chat.system(
+                    "実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。"
+                )
             )
         _, agent_answer = session.parse(AgentAnswer)
 

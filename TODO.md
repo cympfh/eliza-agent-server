@@ -248,3 +248,28 @@ https://docs.x.ai/developers/tools/function-calling の "Defining Tools with Pyd
 Return は不要。
 絶対に句読点を使わないこと
 和文と英文が混在するときは半角スペースで区切ること
+
+## [x] 仕様変更 [2026-03-06 完了]
+
+- モデルはRequest では受け付けない
+    - 代わりに eliza/models.py に定数で定義する
+        - HEAVY_MODEL = "grok-4-1-fast-reasoning"
+        - LIGHT_MODEL = "grok-4-1-fast-non-reasoning
+- agent を agents/*.py に分割する
+    - agents/router.py
+        - 会話の内容及びタスクの分類をする
+    - agents/trivial.py
+        - 意味のない雑談に応答する
+            - 回答が誤っていていいもの
+                - OK: 挨拶
+                - NG: 天気の質問に答える（ツールを呼ばずに回答するのはNG）
+        - LIGHT_MODEL を使う
+    - agents/question.py
+        - 検索をして質問に答える
+            - 回答が正確である必要があるもの
+                - OK: 天気の質問に答える（ツールを呼ばずに回答するのはNG）
+        - tools: x_search, web_search, code_execution
+    - agents/operation.py
+        - スマート家電の操作などをする
+        - tools: switchbot, smart_light, etc
+            - 今の ./eliza/agent.py をまずは mv ./eliza/agent.py ./eliza/agents/operation.py に移動する

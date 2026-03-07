@@ -15,7 +15,10 @@ from pydantic import BaseModel, Field
 
 import eliza.memory
 import eliza.tools
-from eliza.agent import Agent
+from eliza.agents.operation import Agent
+from eliza.agents.question import QuestionAgent
+from eliza.agents.router import IntentLabel, IntentRouter
+from eliza.agents.trivial import TrivialAgent
 
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -71,7 +74,6 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message]
-    model: str = "grok-4-1-fast"
     use_memory: bool = True
     detect_sleep: bool = True
     max_tool_loops: int = 5
@@ -108,7 +110,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
     logger.info("=" * 80)
     logger.info(f"[REQUEST ID: {request_id}] POST /chat")
     logger.info("-" * 80)
-    logger.info(f"[REQUEST] Model: {request.model}")
     logger.info(f"[REQUEST] Number of messages: {len(request.messages)}")
     logger.info("[REQUEST] Body:")
     for i, msg in enumerate(request.messages):
@@ -135,21 +136,47 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             logger.info(
                 f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})"
             )
-            agent = Agent(
-                api_key=XAI_API_KEY,
-                model=request.model,
-                use_memory=request.use_memory,
-                deep=request.deep,
-                interact=request.interact,
+            messages_dicts = [
+                {"role": m.role, "content": m.content} for m in request.messages
+            ]
+
+            # router で意図を分類してエージェントを選択する
+            intent = IntentRouter(api_key=XAI_API_KEY).classify(
+                messages_dicts, request_id
             )
-            result = agent.run(
-                messages=[
-                    {"role": m.role, "content": m.content} for m in request.messages
-                ],
-                request_id=request_id,
-                max_tool_loops=request.max_tool_loops,
-                detect_sleep=request.detect_sleep,
-            )
+            logger.info(f"[REQUEST ID: {request_id}] Intent: {intent}")
+
+            if intent == IntentLabel.Trivial:
+                result = TrivialAgent(
+                    api_key=XAI_API_KEY,
+                    use_memory=request.use_memory,
+                ).run(
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    detect_sleep=request.detect_sleep,
+                )
+            elif intent == IntentLabel.Question:
+                result = QuestionAgent(
+                    api_key=XAI_API_KEY,
+                    use_memory=request.use_memory,
+                ).run(
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    detect_sleep=request.detect_sleep,
+                )
+            else:
+                # Operation (default)
+                result = Agent(
+                    api_key=XAI_API_KEY,
+                    use_memory=request.use_memory,
+                    deep=request.deep,
+                    interact=request.interact,
+                ).run(
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    max_tool_loops=request.max_tool_loops,
+                    detect_sleep=request.detect_sleep,
+                )
 
             logger.info("-" * 80)
             logger.info(f"[RESPONSE ID: {request_id}] Success")
@@ -159,6 +186,12 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             logger.info(f"  {result.content}")
             logger.info("[RESPONSE] Reasoning:")
             logger.info(f"  {result.reasoning}")
+            logger.info("[RESPONSE] Citations:")
+            if result.citations:
+                for url in result.citations:
+                    logger.info(f"  {url}")
+            else:
+                logger.info("  -- no citations --")
             logger.info("=" * 80)
 
             response_message = Message(role="assistant", content=result.content)
