@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +96,7 @@ class QuestionAgent:
         messages: list[dict[str, str]],
         request_id: str,
         detect_sleep: bool = True,
+        cancel_event: threading.Event | None = None,
     ) -> AgentResponse:
         """会話履歴を受け取り検索ベースで質問に回答する
 
@@ -147,14 +149,25 @@ class QuestionAgent:
         if detect_sleep:
             session.append(chat.system(self._load_prompt("SLEEP_INSTRUCTION.md")))
 
+        MAX_LOOP = 10
         logger.info(f"[REQUEST ID: {request_id}] QuestionAgent: generating response...")
 
-        while True:
+        for loop in range(1, MAX_LOOP + 1):
+            if cancel_event and cancel_event.is_set():
+                logger.info(
+                    f"[REQUEST ID: {request_id}] QuestionAgent: cancelled before loop {loop}. Exiting."
+                )
+                raise InterruptedError("QuestionAgent cancelled")
             response, agent_answer = session.parse(AgentAnswer)
             # 検索ツールが使われていない場合は検索促進プロンプトを挟んでリトライ
             if not agent_answer.answer or not self._used_search(response):
+                if loop >= MAX_LOOP:
+                    logger.warning(
+                        f"[REQUEST ID: {request_id}] QuestionAgent: max loop ({MAX_LOOP}) reached. Returning current answer."
+                    )
+                    break
                 logger.info(
-                    f"[REQUEST ID: {request_id}] QuestionAgent: no search tool used. Retrying with search required instruction..."
+                    f"[REQUEST ID: {request_id}] QuestionAgent: no search tool used. Retrying with search required instruction... (loop {loop}/{MAX_LOOP})"
                 )
                 if agent_answer.answer:
                     session.append(chat.assistant(agent_answer.answer))
