@@ -298,3 +298,11 @@ IntentRouter の結果が Trivial なら Trivial はそのまま使うが Questi
 
 というシステムメッセージを挟んでリトライさせる。
 メッセージは eliza/prompt/*.md に置いといて。
+
+## [x] Operation Agent の改善 [2026-03-10 完了]
+
+- parse() と sample() を混ぜない
+    - 常に parse() で AgentAnswer を生成する
+    - 特に最後の一回の parse() が不要になるはず
+ 
+

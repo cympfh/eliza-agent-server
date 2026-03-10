@@ -195,11 +195,12 @@ class Agent:
 
         # レスポンス生成 / tool calling ループ
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+        agent_answer: AgentAnswer | None = None
         for tool_loop in range(1, max_tool_loops + 1):
             logger.info(
                 f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{max_tool_loops})"
             )
-            response = session.sample()
+            response, agent_answer = session.parse(AgentAnswer)
             tool_used = False
 
             if response.tool_calls:
@@ -237,9 +238,9 @@ class Agent:
                     logger.warning(
                         f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
                     )
-                if response.content:
+                if agent_answer.answer:
                     session.append(
-                        chat.assistant(f"ここまでの仮説: {response.content}")
+                        chat.assistant(f"ここまでの仮説: {agent_answer.answer}")
                     )
 
                 skill_just_used = any(
@@ -259,13 +260,13 @@ class Agent:
                         )
                     )
                 )
-            elif self._should_retry_with_tool(response.content):
+            elif self._should_retry_with_tool(agent_answer.answer):
                 remaining = max_tool_loops - tool_loop - 1
                 if remaining > 0:
                     logger.info(
                         f"[REQUEST ID: {request_id}] Response mentions tool intent but no tool was called. Retrying with tool instruction..."
                     )
-                    session.append(chat.assistant(response.content))
+                    session.append(chat.assistant(agent_answer.answer))
                     session.append(
                         chat.system(self._load_prompt("TOOL_REQUIRED_INSTRUCTION.md"))
                     )
@@ -273,19 +274,6 @@ class Agent:
                     break
             else:
                 break
-
-        # 最終回答を structured output で生成
-        logger.info(f"[REQUEST ID: {request_id}] Generating final structured answer...")
-        executed = [t[0]["name"] for t in tool_history if t[0]["name"] != "skill_use"]
-        if executed:
-            session.append(chat.system(f"実際に実行したツール: {', '.join(executed)}"))
-        else:
-            session.append(
-                chat.system(
-                    "実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。"
-                )
-            )
-        _, agent_answer = session.parse(AgentAnswer)
 
         sleep = detect_sleep and "[SLEEP]" in agent_answer.answer
         return AgentResponse(
