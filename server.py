@@ -6,6 +6,7 @@ import os
 import signal
 import sys
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -89,6 +90,7 @@ class ChatResponse(BaseModel):
     sleep: bool = False
     tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
     citations: list[str] = Field(default_factory=list)
+    elapsed_ms: int = 0
 
 
 class SummaryResponse(BaseModel):
@@ -107,6 +109,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
         チャットリクエスト (messages, model, オプション群を含む)
     """
     request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    request_start = time.monotonic()
 
     # リクエストの詳細ログ
     logger.info("=" * 80)
@@ -218,8 +221,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                         detect_sleep=request.detect_sleep,
                     )
 
+            elapsed_ms = int((time.monotonic() - request_start) * 1000)
             logger.info("-" * 80)
-            logger.info(f"[RESPONSE ID: {request_id}] Success")
+            logger.info(f"[RESPONSE ID: {request_id}] Success ({elapsed_ms} ms)")
             logger.info("[RESPONSE] Role: assistant")
             logger.info(f"[RESPONSE] Content length: {len(result.content)} chars")
             logger.info("[RESPONSE] Content:")
@@ -262,6 +266,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 sleep=result.sleep,
                 tool=result.tool_history if result.tool_history else None,
                 citations=result.citations,
+                elapsed_ms=elapsed_ms,
             )
 
         except Exception as e:
