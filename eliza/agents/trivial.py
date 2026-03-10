@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -98,8 +99,6 @@ class TrivialAgent:
 
         # memory summary 差し込み
         if self.use_memory:
-            import json
-
             summary = eliza.memory.get()
             if summary:
                 summary_str = json.dumps(summary, ensure_ascii=False, indent=2)

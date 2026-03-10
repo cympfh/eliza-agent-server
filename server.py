@@ -155,10 +155,11 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     request_id=request_id,
                     detect_sleep=request.detect_sleep,
                 )
-            elif intent == IntentLabel.Question:
+            elif intent in (IntentLabel.QuestionLight, IntentLabel.QuestionHeavy):
                 result = QuestionAgent(
                     api_key=XAI_API_KEY,
                     use_memory=request.use_memory,
+                    use_heavy=(intent == IntentLabel.QuestionHeavy),
                 ).run(
                     messages=messages_dicts,
                     request_id=request_id,
@@ -197,18 +198,24 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             response_message = Message(role="assistant", content=result.content)
 
             # 受信メッセージ + 生成メッセージを SQLite に保存
-            all_msgs = list(request.messages) + [response_message]
-            eliza.memory.save_messages(
-                [
-                    {
-                        "message_id": m.message_id,
-                        "timestamp": m.timestamp.isoformat(),
-                        "role": m.role,
-                        "content": m.content,
-                    }
-                    for m in all_msgs
-                ]
-            )
+            save_records = [
+                {
+                    "message_id": m.message_id,
+                    "timestamp": m.timestamp.isoformat(),
+                    "role": m.role,
+                    "content": m.content,
+                }
+                for m in request.messages
+            ] + [
+                {
+                    "message_id": response_message.message_id,
+                    "timestamp": response_message.timestamp.isoformat(),
+                    "role": response_message.role,
+                    "content": response_message.content,
+                    "reasoning": result.reasoning,
+                }
+            ]
+            eliza.memory.save_messages(save_records)
 
             return ChatResponse(
                 message=response_message,

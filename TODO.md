@@ -273,3 +273,8 @@ Return は不要。
         - スマート家電の操作などをする
         - tools: switchbot, smart_light, etc
             - 今の ./eliza/agent.py をまずは mv ./eliza/agent.py ./eliza/agents/operation.py に移動する
+
+## [x] memory に reasoning を追加する [2026-03-08 完了]
+
+.memory/messages.sqlite に reasoning というカラムを追加して格納するようにする
+generate summary のときに reasoning も参照するようにする

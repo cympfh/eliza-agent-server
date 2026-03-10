@@ -55,10 +55,16 @@ def _init_db() -> None:
                 message_id TEXT PRIMARY KEY,
                 timestamp  TEXT NOT NULL,
                 role       TEXT NOT NULL,
-                content    TEXT NOT NULL
+                content    TEXT NOT NULL,
+                reasoning  TEXT
             )
             """
         )
+        # 既存DBへの後方互換: reasoning カラムがなければ追加する
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN reasoning TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
 
@@ -70,14 +76,14 @@ def save_messages(messages: list[dict]) -> None:
     Parameters
     ----------
     messages
-        {message_id, timestamp, role, content} の dict リスト
+        {message_id, timestamp, role, content, reasoning(optional)} の dict リスト
     """
     _init_db()
     with sqlite3.connect(MESSAGES_DB) as conn:
         conn.executemany(
-            "INSERT OR IGNORE INTO messages (message_id, timestamp, role, content) VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO messages (message_id, timestamp, role, content, reasoning) VALUES (?, ?, ?, ?, ?)",
             [
-                (m["message_id"], m["timestamp"], m["role"], m["content"])
+                (m["message_id"], m["timestamp"], m["role"], m["content"], m.get("reasoning"))
                 for m in messages
             ],
         )
@@ -149,7 +155,7 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
 
     with sqlite3.connect(MESSAGES_DB) as conn:
         rows = conn.execute(
-            "SELECT message_id, timestamp, role, content FROM messages ORDER BY timestamp ASC"
+            "SELECT message_id, timestamp, role, content, reasoning FROM messages ORDER BY timestamp ASC"
         ).fetchall()
 
     if not rows:
@@ -157,7 +163,7 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
 
     # 日付でグループ化
     groups: dict[str, list[dict]] = defaultdict(list)
-    for message_id, timestamp, role, content in rows:
+    for message_id, timestamp, role, content, reasoning in rows:
         # timestamp は ISO形式 "2026-03-04T12:34:56+09:00" など
         date_str = timestamp[:10]  # YYYY-MM-DD
         groups[date_str].append(
@@ -166,6 +172,7 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
                 "timestamp": timestamp,
                 "role": role,
                 "content": content,
+                "reasoning": reasoning,
             }
         )
 
@@ -187,14 +194,28 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
                 pass
 
         # 日別要約を生成
-        messages_text = "\n".join(
-            f"[{m['timestamp']}] {m['role']}: {m['content']}" for m in msgs
-        )
+        def _fmt(m: dict) -> str:
+            base = f"[{m['timestamp']}] {m['role']}: {m['content']}"
+            if m.get("reasoning"):
+                base += f"\n  (reasoning: {m['reasoning']})"
+            return base
+
+        messages_text = "\n".join(_fmt(m) for m in msgs)
         system_prompt = (
             "以下はある一日の会話ログです。以下のJSON形式で要約してください。"
             "JSONのみを出力し、余計な説明・コードブロックは不要です。\n"
+            "ログから読み取れる情報のみ埋めてください。不明なフィールドは null または空リストにしてください。\n\n"
+            "出力例:\n"
             '{"summary": "この日の会話の要約(200文字目安)", '
-            '"user_profile": {"interests": ["関心事リスト"], "tendencies": ["傾向リスト"]}}'
+            '"user_profile": {'
+            '"name": "田中 太郎", '
+            '"age": 25, '
+            '"gender": "男性", '
+            '"location": {"prefecture": "東京都", "city": "渋谷区", "detail": "道玄坂付近"}, '
+            '"occupation": "エンジニア", '
+            '"interests": ["VRChat", "アニメ", "料理"], '
+            '"tendencies": ["夜型", "最新情報を求める傾向がある"], '
+            '"personal_notes": ["一人暮らし", "猫アレルギー"]}}'
         )
         raw = _call_grok(system_prompt, messages_text, model=model)
         try:
@@ -202,18 +223,35 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
         except json.JSONDecodeError:
             parsed = {
                 "summary": raw[:500],
-                "user_profile": {"interests": [], "tendencies": []},
+                "user_profile": {
+                    "name": None,
+                    "age": None,
+                    "gender": None,
+                    "location": {"prefecture": None, "city": None, "detail": None},
+                    "occupation": None,
+                    "interests": [],
+                    "tendencies": [],
+                    "personal_notes": [],
+                },
             }
 
+        _default_profile = {
+            "name": None,
+            "age": None,
+            "gender": None,
+            "location": {"prefecture": None, "city": None, "detail": None},
+            "occupation": None,
+            "interests": [],
+            "tendencies": [],
+            "personal_notes": [],
+        }
         now_jst = datetime.now(JST).isoformat(timespec="seconds")
         daily_data = {
             "created_datetime": now_jst,
             "num_messages": len(msgs),
             "messages": msg_ids,
             "summary": parsed.get("summary", ""),
-            "user_profile": parsed.get(
-                "user_profile", {"interests": [], "tendencies": []}
-            ),
+            "user_profile": parsed.get("user_profile", _default_profile),
         }
         daily_file.write_text(
             json.dumps(daily_data, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -231,10 +269,20 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
         for d in daily_summaries
     )
     system_prompt_all = (
-        "以下は日別の会話要約です。全体を通じてユーザーの特徴・傾向・関心事を把握し、"
+        "以下は日別の会話要約です。全体を通じてユーザーの特徴・傾向・関心事・個人情報を把握し、"
         "以下のJSON形式で出力してください。JSONのみを出力し、余計な説明・コードブロックは不要です。\n"
+        "複数日の情報を統合し、最も確からしい値を採用してください。不明なフィールドは null または空リストにしてください。\n\n"
+        "出力例:\n"
         '{"summary": "全期間の総合要約(300文字目安)", '
-        '"user_profile": {"interests": ["関心事リスト"], "tendencies": ["傾向リスト"]}}'
+        '"user_profile": {'
+        '"name": "田中 太郎", '
+        '"age": 25, '
+        '"gender": "男性", '
+        '"location": {"prefecture": "東京都", "city": "渋谷区", "detail": null}, '
+        '"occupation": "エンジニア", '
+        '"interests": ["VRChat", "アニメ", "料理"], '
+        '"tendencies": ["夜型", "最新情報を求める傾向がある"], '
+        '"personal_notes": ["一人暮らし", "猫アレルギー"]}}'
     )
     raw_all = _call_grok(system_prompt_all, all_text, model=model)
     try:
@@ -242,18 +290,35 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
     except json.JSONDecodeError:
         parsed_all = {
             "summary": raw_all[:500],
-            "user_profile": {"interests": [], "tendencies": []},
+            "user_profile": {
+                "name": None,
+                "age": None,
+                "gender": None,
+                "location": {"prefecture": None, "city": None, "detail": None},
+                "occupation": None,
+                "interests": [],
+                "tendencies": [],
+                "personal_notes": [],
+            },
         }
 
+    _default_profile_all = {
+        "name": None,
+        "age": None,
+        "gender": None,
+        "location": {"prefecture": None, "city": None, "detail": None},
+        "occupation": None,
+        "interests": [],
+        "tendencies": [],
+        "personal_notes": [],
+    }
     total_msgs = sum(len(list(v)) for v in groups.values())
     now_jst = datetime.now(JST).isoformat(timespec="seconds")
     all_data = {
         "created_datetime": now_jst,
         "num_messages": total_msgs,
         "summary": parsed_all.get("summary", ""),
-        "user_profile": parsed_all.get(
-            "user_profile", {"interests": [], "tendencies": []}
-        ),
+        "user_profile": parsed_all.get("user_profile", _default_profile_all),
     }
     ALL_SUMMARY_FILE.write_text(
         json.dumps(all_data, ensure_ascii=False, indent=2), encoding="utf-8"
