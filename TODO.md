@@ -278,3 +278,23 @@ Return は不要。
 
 .memory/messages.sqlite に reasoning というカラムを追加して格納するようにする
 generate summary のときに reasoning も参照するようにする
+
+## [x] Trivial と QuestionLight の投機実行 [2026-03-10 20:22 完了]
+
+どうせ副作用はない.
+そこまで重くもない.
+IntentRouter の結果を待たずにこの二つは先に走らせておく (async).
+IntentRouter の結果が Trivial なら Trivial はそのまま使うが QuestionLight は破棄する.
+
+できる？
+
+## [x] Question で検索してなかったら検索を促す [2026-03-10 完了]
+
+以下のいずれかのとき
+
+- `web_*` `x_*` のツール呼び出しが一度もなかったとき
+
+「ユーザーは検索に基づく正しい回答を求めています。検索ツールを使って、ユーザーの質問に正確に答えてください。」
+
+というシステムメッセージを挟んでリトライさせる。
+メッセージは eliza/prompt/*.md に置いといて。

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import logging
@@ -140,44 +141,75 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 {"role": m.role, "content": m.content} for m in request.messages
             ]
 
-            # router で意図を分類してエージェントを選択する
-            intent = IntentRouter(api_key=XAI_API_KEY).classify(
-                messages_dicts, request_id
+            # Trivial と QuestionLight を投機実行（ルーター結果を待たずに並列起動）
+            trivial_task = asyncio.create_task(
+                asyncio.to_thread(
+                    TrivialAgent(
+                        api_key=XAI_API_KEY,
+                        use_memory=request.use_memory,
+                    ).run,
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    detect_sleep=request.detect_sleep,
+                )
+            )
+            question_light_task = asyncio.create_task(
+                asyncio.to_thread(
+                    QuestionAgent(
+                        api_key=XAI_API_KEY,
+                        use_memory=request.use_memory,
+                        use_heavy=False,
+                    ).run,
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    detect_sleep=request.detect_sleep,
+                )
+            )
+
+            # router で意図を分類
+            intent = await asyncio.to_thread(
+                IntentRouter(api_key=XAI_API_KEY).classify,
+                messages_dicts,
+                request_id,
             )
             logger.info(f"[REQUEST ID: {request_id}] Intent: {intent}")
 
             if intent == IntentLabel.Trivial:
-                result = TrivialAgent(
-                    api_key=XAI_API_KEY,
-                    use_memory=request.use_memory,
-                ).run(
-                    messages=messages_dicts,
-                    request_id=request_id,
-                    detect_sleep=request.detect_sleep,
-                )
-            elif intent in (IntentLabel.QuestionLight, IntentLabel.QuestionHeavy):
-                result = QuestionAgent(
-                    api_key=XAI_API_KEY,
-                    use_memory=request.use_memory,
-                    use_heavy=(intent == IntentLabel.QuestionHeavy),
-                ).run(
-                    messages=messages_dicts,
-                    request_id=request_id,
-                    detect_sleep=request.detect_sleep,
-                )
+                result = await trivial_task
+                question_light_task.cancel()
+            elif intent == IntentLabel.QuestionLight:
+                result = await question_light_task
+                trivial_task.cancel()
             else:
-                # Operation (default)
-                result = Agent(
-                    api_key=XAI_API_KEY,
-                    use_memory=request.use_memory,
-                    deep=request.deep,
-                    interact=request.interact,
-                ).run(
-                    messages=messages_dicts,
-                    request_id=request_id,
-                    max_tool_loops=request.max_tool_loops,
-                    detect_sleep=request.detect_sleep,
-                )
+                # Trivial / QuestionLight の投機実行を破棄
+                trivial_task.cancel()
+                question_light_task.cancel()
+
+                if intent == IntentLabel.QuestionHeavy:
+                    result = await asyncio.to_thread(
+                        QuestionAgent(
+                            api_key=XAI_API_KEY,
+                            use_memory=request.use_memory,
+                            use_heavy=True,
+                        ).run,
+                        messages=messages_dicts,
+                        request_id=request_id,
+                        detect_sleep=request.detect_sleep,
+                    )
+                else:
+                    # Operation (default)
+                    result = await asyncio.to_thread(
+                        Agent(
+                            api_key=XAI_API_KEY,
+                            use_memory=request.use_memory,
+                            deep=request.deep,
+                            interact=request.interact,
+                        ).run,
+                        messages=messages_dicts,
+                        request_id=request_id,
+                        max_tool_loops=request.max_tool_loops,
+                        detect_sleep=request.detect_sleep,
+                    )
 
             logger.info("-" * 80)
             logger.info(f"[RESPONSE ID: {request_id}] Success")
