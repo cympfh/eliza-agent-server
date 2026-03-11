@@ -302,3 +302,18 @@ IntentRouter の結果が Trivial なら Trivial はそのまま使うが Questi
 ## [x] リクエストが来てからレスポンスを返すまでにかかった時間をログに出す [2026-03-10 完了]
 
 Reponse にも含める.
+
+## [x] QuestionLight が失敗しやすい [2026-03-11 完了]
+
+最終回答で
+
+```
+2026-03-11 21:15:36 - server - ERROR - [REQUEST ID: 20260311-211347-276934] Error occurred (attempt 3/3): 1 validation error for AgentAnswer
+  Invalid JSON: EOF while parsing a string at line 1 column 181 [type=json_invalid, input_value='{"reasoning": "システ...リ 『ふにゃおす', input_type=str]
+      For further information visit https://errors.pydantic.dev/2.12/v/json_invalid
+```
+
+になる。ログによると、出力JSONが途中で切れてる？
+続きを受け取る方法がある？
+
+→ LIGHT_MODEL の出力 truncation が原因。QuestionLight も HEAVY_MODEL に統一した。

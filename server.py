@@ -146,9 +146,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             ]
 
             # 投機実行キャンセル用イベント
-            question_light_cancel = threading.Event()
+            question_cancel = threading.Event()
 
-            # Trivial と QuestionLight を投機実行（ルーター結果を待たずに並列起動）
+            # Trivial と Question を投機実行（ルーター結果を待たずに並列起動）
             trivial_task = asyncio.create_task(
                 asyncio.to_thread(
                     TrivialAgent(
@@ -160,17 +160,16 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     detect_sleep=request.detect_sleep,
                 )
             )
-            question_light_task = asyncio.create_task(
+            question_task = asyncio.create_task(
                 asyncio.to_thread(
                     QuestionAgent(
                         api_key=XAI_API_KEY,
                         use_memory=request.use_memory,
-                        use_heavy=False,
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
                     detect_sleep=request.detect_sleep,
-                    cancel_event=question_light_cancel,
+                    cancel_event=question_cancel,
                 )
             )
 
@@ -184,42 +183,30 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
             if intent == IntentLabel.Trivial:
                 result = await trivial_task
-                question_light_cancel.set()
-                question_light_task.cancel()
-            elif intent == IntentLabel.QuestionLight:
-                result = await question_light_task
+                question_cancel.set()
+                question_task.cancel()
+            elif intent == IntentLabel.Question:
+                result = await question_task
                 trivial_task.cancel()
             else:
-                # Trivial / QuestionLight の投機実行を破棄
-                question_light_cancel.set()
+                # Trivial / Question の投機実行を破棄
+                question_cancel.set()
                 trivial_task.cancel()
-                question_light_task.cancel()
+                question_task.cancel()
 
-                if intent == IntentLabel.QuestionHeavy:
-                    result = await asyncio.to_thread(
-                        QuestionAgent(
-                            api_key=XAI_API_KEY,
-                            use_memory=request.use_memory,
-                            use_heavy=True,
-                        ).run,
-                        messages=messages_dicts,
-                        request_id=request_id,
-                        detect_sleep=request.detect_sleep,
-                    )
-                else:
-                    # Operation (default)
-                    result = await asyncio.to_thread(
-                        Agent(
-                            api_key=XAI_API_KEY,
-                            use_memory=request.use_memory,
-                            deep=request.deep,
-                            interact=request.interact,
-                        ).run,
-                        messages=messages_dicts,
-                        request_id=request_id,
-                        max_tool_loops=request.max_tool_loops,
-                        detect_sleep=request.detect_sleep,
-                    )
+                # Operation (default)
+                result = await asyncio.to_thread(
+                    Agent(
+                        api_key=XAI_API_KEY,
+                        use_memory=request.use_memory,
+                        deep=request.deep,
+                        interact=request.interact,
+                    ).run,
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    max_tool_loops=request.max_tool_loops,
+                    detect_sleep=request.detect_sleep,
+                )
 
             elapsed_ms = int((time.monotonic() - request_start) * 1000)
             logger.info("-" * 80)

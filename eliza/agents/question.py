@@ -10,7 +10,7 @@ from xai_sdk import Client, chat
 from xai_sdk.tools import code_execution, web_search, x_search
 
 import eliza.memory
-from eliza.models import HEAVY_MODEL, LIGHT_MODEL
+from eliza.models import HEAVY_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ class QuestionAgent:
         self,
         api_key: str,
         use_memory: bool = True,
-        use_heavy: bool = False,
     ):
         """検索・情報収集で質問に答えるエージェントを初期化する
 
@@ -55,11 +54,9 @@ class QuestionAgent:
             xAI API キー
         use_memory
             True のとき memory summary をプロンプトに差し込む
-        use_heavy
-            True のとき重いモデル (HEAVY_MODEL) を使用する。False のとき軽量モデル (LIGHT_MODEL) を使用する
         """
         self.api_key = api_key
-        self.model = HEAVY_MODEL if use_heavy else LIGHT_MODEL
+        self.model = HEAVY_MODEL
         self.use_memory = use_memory
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
