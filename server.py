@@ -107,6 +107,11 @@ class SummaryResponse(BaseModel):
     status: str
 
 
+@app.get("/eliza/api/health")
+async def get_health():
+    return {"status": "ok"}
+
+
 @app.post("/eliza/api/chat", response_model=ChatResponse, dependencies=[Depends(_verify_secret)])
 async def post_chat(request: ChatRequest) -> ChatResponse:
     """会話履歴を受け取り次の返答を生成する

@@ -124,3 +124,7 @@ X-Secret-Key: <ELIZA_SECRET_KEY の値>
 ### POST /eliza/api/summary
 
 過去の会話を要約してメモリに保存します（バックグラウンド実行・202 即返し）。
+
+### GET /eliza/api/health
+
+ヘルスチェック。認証不要。
