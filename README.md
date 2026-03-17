@@ -72,6 +72,7 @@ export SWITCHBOT_API_SECRET="..."  # Switchbot シークレット
 export YOUTUBE_API_KEY="..."       # YouTube Data API キー
 export BROWSER_PATH="..."          # ブラウザの実行ファイルパス (アラーム・YouTube・URL 開封に必要)
 export SKILL_DIR="./skill"         # スキルディレクトリのパス (省略可、デフォルト: ./skill)
+export ELIZA_SECRET_KEY="..."      # API 認証キー (省略可、設定時はリクエストヘッダーに必須)
 ```
 
 ## 起動
@@ -86,7 +87,16 @@ python server.py
 
 ## API
 
-### POST /chat
+### 認証
+
+`ELIZA_SECRET_KEY` を設定している場合、すべてのリクエストに `X-Secret-Key` ヘッダーが必要です。
+一致しない場合は **403 Forbidden** を返します。未設定の場合は認証スキップ。
+
+```
+X-Secret-Key: <ELIZA_SECRET_KEY の値>
+```
+
+### POST /eliza/api/chat
 
 会話履歴を送信して返答を得ます。
 
@@ -95,7 +105,6 @@ python server.py
   "messages": [
     { "role": "user", "content": "エアコン消して" }
   ],
-  "model": "grok-4-1-fast",
   "use_memory": true,
   "detect_sleep": true,
   "max_tool_loops": 5,
@@ -106,21 +115,12 @@ python server.py
 
 | フィールド | デフォルト | 説明 |
 |---|---|---|
-| `model` | `grok-4-1-fast` | 使用する Grok モデル |
 | `use_memory` | `true` | 会話要約をプロンプトに差し込む |
 | `detect_sleep` | `true` | sleep 検出を有効にする |
 | `max_tool_loops` | `5` | ツール呼び出しの最大ループ数 |
 | `deep` | `false` | deep_research スキルを有効にする |
 | `interact` | `false` | スキルを interact モードでレンダリングする |
 
-### POST /summary
+### POST /eliza/api/summary
 
 過去の会話を要約してメモリに保存します（バックグラウンド実行・202 即返し）。
-
-### GET /health
-
-ヘルスチェック。
-
-### GET /tools
-
-利用可能なツール名一覧を返します。

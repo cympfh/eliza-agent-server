@@ -12,7 +12,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Security
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 import eliza.memory
@@ -36,6 +37,16 @@ logger = logging.getLogger(__name__)
 XAI_API_KEY = os.environ.get("XAI_API_KEY")
 SWITCHBOT_API_TOKEN = os.environ.get("SWITCHBOT_API_TOKEN")
 SWITCHBOT_API_SECRET = os.environ.get("SWITCHBOT_API_SECRET")
+ELIZA_SECRET_KEY = os.environ.get("ELIZA_SECRET_KEY")
+
+_api_key_header = APIKeyHeader(name="X-Secret-Key", auto_error=False)
+
+
+async def _verify_secret(key: str | None = Security(_api_key_header)):
+    if not ELIZA_SECRET_KEY:
+        return
+    if key != ELIZA_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 @asynccontextmanager
@@ -96,7 +107,7 @@ class SummaryResponse(BaseModel):
     status: str
 
 
-@app.post("/eliza/api/chat", response_model=ChatResponse)
+@app.post("/eliza/api/chat", response_model=ChatResponse, dependencies=[Depends(_verify_secret)])
 async def post_chat(request: ChatRequest) -> ChatResponse:
     """会話履歴を受け取り次の返答を生成する
 
@@ -270,7 +281,7 @@ def _generate_summary_in_background(request_id: str):
         logger.error("=" * 80)
 
 
-@app.post("/eliza/api/summary", status_code=202, response_model=SummaryResponse)
+@app.post("/eliza/api/summary", status_code=202, response_model=SummaryResponse, dependencies=[Depends(_verify_secret)])
 async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
     """メモリ要約をバックグラウンドで生成する
 
