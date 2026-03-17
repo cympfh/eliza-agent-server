@@ -28,6 +28,12 @@ class IntentResult(BaseModel):
         )
     )
     reason: str = Field(description="分類の根拠（日本語・簡潔に）")
+    query_hint: str = Field(
+        description=(
+            "次のエージェントへのヒント。ユーザーの意図・背景・推奨アクションを日本語で記述する。"
+            "例: 'ユーザーは文京区の天気を尋ねています。Web検索で正確なデータを返しましょう。'"
+        )
+    )
 
 
 class IntentRouter:
@@ -41,7 +47,7 @@ class IntentRouter:
         """
         self.api_key = api_key
 
-    def classify(self, messages: list[dict[str, str]], request_id: str) -> IntentLabel:
+    def classify(self, messages: list[dict[str, str]], request_id: str) -> IntentResult:
         """会話履歴からユーザーの意図を分類する
 
         軽量モデルを使って Trivial / Question / Operation の3クラスに structured output で分類する
@@ -82,6 +88,6 @@ class IntentRouter:
         logger.info(f"[REQUEST ID: {request_id}] IntentRouter: classifying intent...")
         _, result = session.parse(IntentResult)
         logger.info(
-            f"[REQUEST ID: {request_id}] IntentRouter: label={result.label}, reason={result.reason}"
+            f"[REQUEST ID: {request_id}] IntentRouter: label={result.label}, reason={result.reason}, query_hint={result.query_hint}"
         )
-        return result.label
+        return result

@@ -75,6 +75,7 @@ class TrivialAgent:
         messages: list[dict[str, str]],
         request_id: str,
         detect_sleep: bool = True,
+        query_hint: str = "",
     ) -> AgentResponse:
         """会話履歴を受け取り雑談応答を生成する
 
@@ -86,6 +87,8 @@ class TrivialAgent:
             ログ追跡用のリクエスト ID
         detect_sleep
             True のとき sleep 検出プロンプトを差し込む
+        query_hint
+            IntentRouter から渡されるクエリヒント
         """
         client = Client(api_key=self.api_key)
         session = client.chat.create(model=self.model)
@@ -117,6 +120,9 @@ class TrivialAgent:
                 session.append(chat.user(msg["content"]))
             elif msg["role"] == "assistant":
                 session.append(chat.assistant(msg["content"]))
+
+        if query_hint:
+            session.append(chat.system(query_hint))
 
         if detect_sleep:
             session.append(chat.system(self._load_prompt("SLEEP_INSTRUCTION.md")))

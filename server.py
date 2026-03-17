@@ -5,7 +5,6 @@ import logging
 import os
 import signal
 import sys
-import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -145,12 +144,18 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 {"role": m.role, "content": m.content} for m in request.messages
             ]
 
-            # 投機実行キャンセル用イベント
-            question_cancel = threading.Event()
+            # router で意図を分類
+            intent_result = await asyncio.to_thread(
+                IntentRouter(api_key=XAI_API_KEY).classify,
+                messages_dicts,
+                request_id,
+            )
+            logger.info(
+                f"[REQUEST ID: {request_id}] Intent: {intent_result.label}, query_hint: {intent_result.query_hint}"
+            )
 
-            # Trivial と Question を投機実行（ルーター結果を待たずに並列起動）
-            trivial_task = asyncio.create_task(
-                asyncio.to_thread(
+            if intent_result.label == IntentLabel.Trivial:
+                result = await asyncio.to_thread(
                     TrivialAgent(
                         api_key=XAI_API_KEY,
                         use_memory=request.use_memory,
@@ -158,10 +163,10 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     messages=messages_dicts,
                     request_id=request_id,
                     detect_sleep=request.detect_sleep,
+                    query_hint=intent_result.query_hint,
                 )
-            )
-            question_task = asyncio.create_task(
-                asyncio.to_thread(
+            elif intent_result.label == IntentLabel.Question:
+                result = await asyncio.to_thread(
                     QuestionAgent(
                         api_key=XAI_API_KEY,
                         use_memory=request.use_memory,
@@ -169,31 +174,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     messages=messages_dicts,
                     request_id=request_id,
                     detect_sleep=request.detect_sleep,
-                    cancel_event=question_cancel,
+                    query_hint=intent_result.query_hint,
                 )
-            )
-
-            # router で意図を分類
-            intent = await asyncio.to_thread(
-                IntentRouter(api_key=XAI_API_KEY).classify,
-                messages_dicts,
-                request_id,
-            )
-            logger.info(f"[REQUEST ID: {request_id}] Intent: {intent}")
-
-            if intent == IntentLabel.Trivial:
-                result = await trivial_task
-                question_cancel.set()
-                question_task.cancel()
-            elif intent == IntentLabel.Question:
-                result = await question_task
-                trivial_task.cancel()
             else:
-                # Trivial / Question の投機実行を破棄
-                question_cancel.set()
-                trivial_task.cancel()
-                question_task.cancel()
-
                 # Operation (default)
                 result = await asyncio.to_thread(
                     Agent(
@@ -206,6 +189,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     request_id=request_id,
                     max_tool_loops=request.max_tool_loops,
                     detect_sleep=request.detect_sleep,
+                    query_hint=intent_result.query_hint,
                 )
 
             elapsed_ms = int((time.monotonic() - request_start) * 1000)

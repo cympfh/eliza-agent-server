@@ -152,6 +152,7 @@ class Agent:
         request_id: str,
         max_tool_loops: int = 5,
         detect_sleep: bool = True,
+        query_hint: str = "",
     ) -> AgentResponse:
         """会話履歴を受け取りエージェントの応答を生成する
 
@@ -165,6 +166,8 @@ class Agent:
             tool calling ループの最大回数
         detect_sleep
             True のとき sleep 検出プロンプトを差し込む
+        query_hint
+            IntentRouter から渡されるクエリヒント
         """
         client = Client(api_key=self.api_key)
 
@@ -188,6 +191,9 @@ class Agent:
                 session.append(chat.user(msg["content"]))
             elif msg["role"] == "assistant":
                 session.append(chat.assistant(msg["content"]))
+
+        if query_hint:
+            session.append(chat.system(query_hint))
 
         self._inject_skill_summary(session, request_id)
         if detect_sleep:

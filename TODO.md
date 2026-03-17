@@ -317,3 +317,36 @@ Reponse にも含める.
 続きを受け取る方法がある？
 
 → LIGHT_MODEL の出力 truncation が原因。QuestionLight も HEAVY_MODEL に統一した。
+
+## [x] Experimental: Router にクエリヒントを作らせる [2026-03-12 完了]
+
+### Revert
+まず投機実行の処理は干渉してしまうので消してください。
+
+### Changes
+今は Router による分類の後、Question なら Question は初めの messages を投げてる。
+Router によるヒントを system prompt として追加する。
+
+```
+User: "こんにちわ"
+Router: {
+  "intent": "Trivial",
+  "query_hint": "ユーザーは挨拶をしています。挨拶を返しましょう。"
+}
+
+User: "今日の天気は？"
+Router: {
+  "intent": "Question",
+  "query_hint": "ユーザーは天気を尋ねています。過去のやりとりからユーザーは文京区在住であることがわかっています。Web 検索をして正確なデータを返しましょう。"
+}
+
+User: "今熱いからエアコンをつけて"
+Router: {
+  "intent": "Operation",
+  "query_hint": "ユーザーはエアコンを冷房モードでつけることを求めています。Switchbot ツールを使ってエアコンを操作しましょう。"
+}
+```
+
+Router の返り値の query_hint を system prompt として、 messages の末尾に追加してください。
+
+
