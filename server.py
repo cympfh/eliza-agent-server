@@ -96,7 +96,7 @@ class SummaryResponse(BaseModel):
     status: str
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/eliza/api/chat", response_model=ChatResponse)
 async def post_chat(request: ChatRequest) -> ChatResponse:
     """会話履歴を受け取り次の返答を生成する
 
@@ -270,7 +270,7 @@ def _generate_summary_in_background(request_id: str):
         logger.error("=" * 80)
 
 
-@app.post("/summary", status_code=202, response_model=SummaryResponse)
+@app.post("/eliza/api/summary", status_code=202, response_model=SummaryResponse)
 async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
     """メモリ要約をバックグラウンドで生成する
 
@@ -291,23 +291,6 @@ async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
     logger.info(f"[REQUEST ID: {request_id}] Accepted. Processing in background.")
 
     return SummaryResponse(status="accepted")
-
-
-@app.get("/health")
-async def get_health() -> dict[str, str]:
-    """ヘルスチェックエンドポイント"""
-    return {"status": "ok"}
-
-
-@app.get("/tools")
-async def get_tools() -> dict[str, list[str]]:
-    """利用可能なツール一覧を返す"""
-    available_tools = eliza.tools.create_tools()
-    tool_names = [
-        tool.function.name if tool.function.name else str(tool).split()[0]
-        for tool in available_tools
-    ]
-    return {"tools": tool_names}
 
 
 def main():
