@@ -139,6 +139,26 @@ def grep(pattern: str, limit: int = 10) -> list[dict]:
     return matched
 
 
+def get_recent_messages(limit: int) -> list[dict]:
+    """直近のメッセージを古い順で返す
+
+    Parameters
+    ----------
+    limit
+        取得するメッセージ数の上限
+    """
+    _init_db()
+    with sqlite3.connect(MESSAGES_DB) as conn:
+        rows = conn.execute(
+            "SELECT message_id, timestamp, role, content FROM messages ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [
+        {"message_id": r[0], "timestamp": r[1], "role": r[2], "content": r[3]}
+        for r in reversed(rows)
+    ]
+
+
 def has_recent_messages(minutes: int = 30) -> bool:
     """直近 N 分以内に保存されたメッセージがあるか確認する
 

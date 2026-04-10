@@ -63,3 +63,4 @@ python server.py # 起動 (reload=True、ホットリロード有効)
 
 - `session.parse(AgentAnswer)` で structured output を生成している。API 不安定時に空レスポンスが返ることがある。`server.py` の MAX_RETRIES=3 でリトライしている。
 - `skill_use` はスキルの手順書を取得するだけで、ツール操作の実行ではない。`SKILL_FETCHED_INSTRUCTION.md` でモデルに明示している。
+- `TODO.md` は `.gitignore` で管理対象外。`git add TODO.md` は失敗する。

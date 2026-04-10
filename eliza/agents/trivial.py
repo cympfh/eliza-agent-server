@@ -103,12 +103,15 @@ class TrivialAgent:
         # memory summary 差し込み
         if self.use_memory:
             summary = eliza.memory.get()
-            if summary:
-                summary_str = json.dumps(summary, ensure_ascii=False, indent=2)
+            recent_messages = eliza.memory.get_recent_messages(6)
+            if summary or recent_messages:
+                summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
                 session.append(
                     chat.system(
                         self._load_prompt(
-                            "MEMORY_INSTRUCTION.md", summary_str=summary_str
+                            "MEMORY_INSTRUCTION.md",
+                            summary_str=summary_str,
+                            recent_messages=recent_messages,
                         )
                     )
                 )

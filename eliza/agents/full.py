@@ -93,18 +93,23 @@ class FullAgent:
                 session.append(chat.system(prompt))
 
     def _inject_memory_summary(self, session: Any, request_id: str) -> None:
-        """memory summary を system メッセージとして差し込む"""
+        """memory summary と直近の会話履歴を system メッセージとして差し込む"""
         if not self.use_memory:
             return
         summary = eliza.memory.get()
-        if summary:
+        recent_messages = eliza.memory.get_recent_messages(6)
+        if summary or recent_messages:
             logger.info(
                 f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
             )
-            summary_str = json.dumps(summary, ensure_ascii=False, indent=2)
+            summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
             session.append(
                 chat.system(
-                    self._load_prompt("MEMORY_INSTRUCTION.md", summary_str=summary_str)
+                    self._load_prompt(
+                        "MEMORY_INSTRUCTION.md",
+                        summary_str=summary_str,
+                        recent_messages=recent_messages,
+                    )
                 )
             )
 
