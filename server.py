@@ -50,6 +50,24 @@ async def _verify_secret(key: str | None = Security(_api_key_header)):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+_AUTO_SUMMARY_INTERVAL_SECONDS = 30 * 60  # 30分
+
+
+async def _auto_summary_loop():
+    """30分ごとに直近のやりとりを確認し summary を自動生成する
+
+    30分以内にやりとりがなかった場合はスキップする
+    """
+    while True:
+        await asyncio.sleep(_AUTO_SUMMARY_INTERVAL_SECONDS)
+        request_id = f"auto-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        if not eliza.memory.has_recent_messages(minutes=30):
+            logger.info("[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping.")
+            continue
+        logger.info(f"[AUTO SUMMARY] Starting auto summary ({request_id})...")
+        await asyncio.to_thread(_generate_summary_in_background, request_id)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI アプリのライフサイクル管理
@@ -60,7 +78,13 @@ async def lifespan(app: FastAPI):
         FastAPI アプリインスタンス
     """
     logger.info("Eliza Agent Server starting up...")
+    auto_summary_task = asyncio.create_task(_auto_summary_loop())
     yield
+    auto_summary_task.cancel()
+    try:
+        await auto_summary_task
+    except asyncio.CancelledError:
+        pass
     logger.info("Eliza Agent Server shutting down gracefully...")
 
 

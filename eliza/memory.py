@@ -139,6 +139,26 @@ def grep(pattern: str, limit: int = 10) -> list[dict]:
     return matched
 
 
+def has_recent_messages(minutes: int = 30) -> bool:
+    """直近 N 分以内に保存されたメッセージがあるか確認する
+
+    Parameters
+    ----------
+    minutes
+        確認する時間範囲 (分)
+    """
+    from datetime import timedelta
+
+    _init_db()
+    cutoff = (datetime.now(JST) - timedelta(minutes=minutes)).isoformat()
+    with sqlite3.connect(MESSAGES_DB) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM messages WHERE timestamp >= ? LIMIT 1",
+            (cutoff,),
+        ).fetchone()
+    return row is not None
+
+
 def generate_summary(model: str = "grok-4-1-fast") -> dict:
     """SQLite の全メッセージから日別・全期間の summary を生成して返す
 
