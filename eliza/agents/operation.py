@@ -100,7 +100,9 @@ class Agent:
             logger.info(
                 f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
             )
-            summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+            summary_str = (
+                json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+            )
             session.append(
                 chat.system(
                     self._load_prompt(

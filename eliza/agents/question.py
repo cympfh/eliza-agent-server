@@ -128,7 +128,9 @@ class QuestionAgent:
             summary = eliza.memory.get()
             recent_messages = eliza.memory.get_recent_messages(6)
             if summary or recent_messages:
-                summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+                summary_str = (
+                    json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+                )
                 session.append(
                     chat.system(
                         self._load_prompt(
