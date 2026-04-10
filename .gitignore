@@ -1,6 +1,7 @@
 .claude/
 .memory/*
 !.memory/.gitkeep
+TODO.md
 
 # Python
 __pycache__/
