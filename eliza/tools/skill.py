@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from cachetools import TTLCache, cached
 from jinja2 import Template
 from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
@@ -33,8 +34,10 @@ class SkillDef:
 
 
 _DEEP_ONLY_SKILLS = {"deep_research"}
+_CACHE_TTL = 30.0
 
 
+@cached(cache=TTLCache(maxsize=4, ttl=_CACHE_TTL))
 def _load_skills(deep: bool = False, interact: bool = False) -> list[SkillDef]:
     """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す
 
