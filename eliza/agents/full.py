@@ -37,7 +37,7 @@ class AgentResponse(BaseModel):
     citations: list[str]
 
 
-class Agent:
+class FullAgent:
     def __init__(
         self,
         api_key: str,
@@ -45,7 +45,9 @@ class Agent:
         deep: bool = False,
         interact: bool = False,
     ):
-        """エージェントを初期化する
+        """ローカルツールと検索ツールを両方使うエージェントを初期化する
+
+        Operation と Question の両方の性質を持つ複合タスクに対応する
 
         Parameters
         ----------
@@ -156,6 +158,8 @@ class Agent:
     ) -> AgentResponse:
         """会話履歴を受け取りエージェントの応答を生成する
 
+        ローカルツールと検索ツールを両方使用する
+
         Parameters
         ----------
         messages
@@ -172,7 +176,7 @@ class Agent:
         client = Client(api_key=self.api_key)
 
         available_tools = eliza.tools.create_tools(
-            deep=self.deep, interact=self.interact, search=False
+            deep=self.deep, interact=self.interact, search=True
         )
         logger.info(
             f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."

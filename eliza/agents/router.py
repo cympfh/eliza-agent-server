@@ -16,6 +16,7 @@ class IntentLabel(str, Enum):
     Trivial = "Trivial"
     Question = "Question"
     Operation = "Operation"
+    Full = "Full"
 
 
 class IntentResult(BaseModel):
@@ -25,6 +26,7 @@ class IntentResult(BaseModel):
             "Trivial: 意味のない会話・挨拶・感謝など。"
             "Question: Web/X(Twitter)検索で答えられる質問。X(Twitter)で動画・投稿を探す場合も含む。"
             "Operation: スキル一覧に記載された機能（YouTube動画検索・再生、エアコン操作、ToDo管理、翻訳など）や PC/スマートホーム操作など外部ツール実行が必要なタスク。"
+            "Full: ローカル操作（スマート家電・スキル等）と Web 検索の両方が同時に必要な複合タスク。非常にまれなケースのみ使用する。"
         )
     )
     reason: str = Field(description="分類の根拠（日本語・簡潔に）")
@@ -68,13 +70,16 @@ class IntentRouter:
         session.append(
             chat.system(
                 "あなたはユーザーの発言の意図を分類するアシスタントです。\n"
-                "会話の最後のユーザー発言を以下の3種類に分類してください。\n\n"
+                "会話の最後のユーザー発言を以下の4種類に分類してください。\n\n"
                 "- Trivial: 挨拶・雑談・感謝・相槌など意味のない会話\n"
                 "- Question: Web検索やX(Twitter)検索で答えられる質問。X(Twitter)で動画・投稿・ツイートを探す場合も含む。ほとんどの質問はこれ\n"
-                f"- Operation: 以下のスキル一覧に該当する操作、またはPC/スマートホーム機器操作など外部ツール実行が必要なタスク\n"
-                f"  スキル一覧（これらに該当すれば Operation）:\n{skill_list}\n\n"
+                "- Operation: 以下のスキル一覧に該当する操作、またはPC/スマートホーム機器操作など外部ツール実行が必要なタスク（検索は不要）\n"
+                f"  スキル一覧（これらに該当すれば Operation）:\n{skill_list}\n"
+                "- Full: ローカル操作（スマート家電・スキル等）と Web 検索の両方が同時に必要な複合タスク。非常にまれ\n\n"
                 "判断に迷ったら Operation よりも Question を優先してください。\n"
                 "ただし YouTube動画・エアコン・ToDo・翻訳などスキル一覧に明示された機能は必ず Operation にしてください。\n"
+                "Full は「エアコンの最適温度をインターネットで調べてからエアコンをつけて」のような、検索とローカル操作が両方必要なときだけ使ってください。\n"
+                "単なる操作は Operation、単なる検索は Question にしてください。\n"
             )
         )
         for msg in messages:

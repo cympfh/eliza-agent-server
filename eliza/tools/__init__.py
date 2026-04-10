@@ -27,9 +27,9 @@ def is_server_side(tool_name: str) -> bool:
     )
 
 
-def create_tools(deep: bool = False, interact: bool = False) -> list[chat_pb2.Tool]:
+def create_tools(deep: bool = False, interact: bool = False, search: bool = True) -> list[chat_pb2.Tool]:
     """Create tools for Grok agent"""
-    available_tools = [tools.x_search(), tools.web_search(), tools.code_execution()]
+    available_tools = [tools.x_search(), tools.web_search(), tools.code_execution()] if search else []
     try:
         switchbot = Switchbot()
         available_tools.extend(switchbot.create_tools())
