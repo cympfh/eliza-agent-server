@@ -39,7 +39,7 @@ class AgentResponse(BaseModel):
     citations: list[str]
 
 
-class FullAgent:
+class FullOperationAgent:
     def __init__(
         self,
         api_key: str,
@@ -47,9 +47,7 @@ class FullAgent:
         deep: bool = False,
         interact: bool = False,
     ):
-        """ローカルツールと検索ツールを両方使うエージェントを初期化する
-
-        Operation と Question の両方の性質を持つ複合タスクに対応する
+        """ローカルツールと検索ツールを両方使えるエージェントを初期化する
 
         Parameters
         ----------
@@ -106,7 +104,9 @@ class FullAgent:
             logger.info(
                 f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
             )
-            summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+            summary_str = (
+                json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+            )
             session.append(
                 chat.system(
                     self._load_prompt(
@@ -166,8 +166,6 @@ class FullAgent:
         query_hint: str = "",
     ) -> AgentResponse:
         """会話履歴を受け取りエージェントの応答を生成する
-
-        ローカルツールと検索ツールを両方使用する
 
         Parameters
         ----------

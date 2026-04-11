@@ -18,8 +18,7 @@ from pydantic import BaseModel, Field
 
 import eliza.memory
 import eliza.tools
-from eliza.agents.full import FullAgent
-from eliza.agents.operation import Agent
+from eliza.agents.full_operation import FullOperationAgent
 from eliza.agents.question import QuestionAgent
 from eliza.agents.router import IntentLabel, IntentRouter
 from eliza.agents.trivial import TrivialAgent
@@ -217,24 +216,10 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     detect_sleep=request.detect_sleep,
                     query_hint=intent_result.query_hint,
                 )
-            elif intent_result.label == IntentLabel.Full:
-                result = await asyncio.to_thread(
-                    FullAgent(
-                        api_key=XAI_API_KEY,
-                        use_memory=request.use_memory,
-                        deep=request.deep,
-                        interact=request.interact,
-                    ).run,
-                    messages=messages_dicts,
-                    request_id=request_id,
-                    max_tool_loops=request.max_tool_loops,
-                    detect_sleep=request.detect_sleep,
-                    query_hint=intent_result.query_hint,
-                )
             else:
-                # Operation (default)
+                # FullOperation (default)
                 result = await asyncio.to_thread(
-                    Agent(
+                    FullOperationAgent(
                         api_key=XAI_API_KEY,
                         use_memory=request.use_memory,
                         deep=request.deep,
