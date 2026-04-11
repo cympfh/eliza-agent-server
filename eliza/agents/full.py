@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from eliza.models import HEAVY_MODEL
 logger = logging.getLogger(__name__)
 
 PROMPT_DIR = Path(__file__).parent.parent / "prompt"
+JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
@@ -82,7 +84,7 @@ class FullAgent:
         return Template(path.read_text(encoding="utf-8")).render(**kwargs).strip()
 
     def _inject_eliza_prompt(self, session: Any, request_id: str) -> None:
-        """ELIZA.md の内容を system prompt として先頭に差し込む"""
+        """ELIZA.md の内容と現在時刻を system prompt として先頭に差し込む"""
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
             prompt = path.read_text(encoding="utf-8").strip()
@@ -91,6 +93,8 @@ class FullAgent:
                     f"[REQUEST ID: {request_id}] Injecting ELIZA.md as system prompt..."
                 )
                 session.append(chat.system(prompt))
+        now = datetime.now(tz=JST)
+        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
 
     def _inject_memory_summary(self, session: Any, request_id: str) -> None:
         """memory summary と直近の会話履歴を system メッセージとして差し込む"""

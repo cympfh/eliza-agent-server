@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ from eliza.models import LIGHT_MODEL
 logger = logging.getLogger(__name__)
 
 PROMPT_DIR = Path(__file__).parent.parent / "prompt"
+JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
@@ -99,6 +101,8 @@ class TrivialAgent:
             prompt = path.read_text(encoding="utf-8").strip()
             if prompt:
                 session.append(chat.system(prompt))
+        now = datetime.now(tz=JST)
+        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
 
         # memory summary 差し込み
         if self.use_memory:
