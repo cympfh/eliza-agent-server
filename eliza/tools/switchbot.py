@@ -105,7 +105,7 @@ class Switchbot:
         """
         device_id = "02-202010092320-98867876"
         if mode == "cool":
-            parameter = "24,2,1,on"
+            parameter = "24,3,1,on"  # 実際は除湿
         elif mode == "fan":
             parameter = "25,4,3,on"
         else:
