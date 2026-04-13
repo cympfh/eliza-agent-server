@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-13
+
+### Added
+- ツールのスケジュール実行機能 (`schedule_tool_call`, `schedule_tool_call_after_minutes`)
+- サーバー lifespan にスケジュールランナー (30秒間隔の非同期バックグラウンドループ)
+- アラームスキル (`skill/alarm.md`) - スケジュール + ブラウザで YouTube を開く方式
+
+### Removed
+- `alarm` ツール (`eliza/tools/alarm.py`) をスケジュール+ブラウザの組み合わせで代替
+
+### Fixed
+- `skill/aircon.md` の `bash_exec_date` 参照を修正
+
+(git commit: e6d71f2)
+
 ## [0.3.0] - 2026-04-13
 
 ### Changed
