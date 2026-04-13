@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-13
+
+### Changed
+- `FullAgent` と `OperationAgent` を `FullOperationAgent` に統合し、コードを簡略化
+- 意図分類を4クラス（Trivial/Question/Operation/Full）から3クラス（Trivial/Question/FullOperation）に簡略化
+- `FullOperationAgent` で検索ツールも常時有効化（`search=True`）
+
+### Fixed
+- switchbot の cool モードのパラメータを除湿の正しい値に修正（`24,2,1,on` → `24,3,1,on`）
+
+(git commit: c6a7fa7)
+
 ## [0.2.0] - 2026-04-11
 
 ### Added
