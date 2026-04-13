@@ -5,10 +5,10 @@ from typing import Any
 from xai_sdk import tools
 from xai_sdk.proto import chat_pb2
 
-from .alarm import Alarm
 from .browser import Browser
 from .clipboard import Clipboard
 from .memory import MemoryTool
+from .schedule import Schedule
 from .skill import Skill
 from .subagents import SubAgents
 from .switchbot import Switchbot
@@ -38,12 +38,12 @@ def create_tools(deep: bool = False, interact: bool = False, search: bool = True
         available_tools.extend(YouTubeSearch().create_tools())
     except Exception as e:
         print(f"Failed to create YouTubeSearch tools: {e}")
-    available_tools.extend(Alarm().create_tools())
     available_tools.extend(Browser().create_tools())
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
     available_tools.extend(Skill(deep=deep, interact=interact).create_tools())
     available_tools.extend(SubAgents().create_tools())
+    available_tools.extend(Schedule().create_tools())
     available_tools.extend(Tenki().create_tools())
     available_tools.extend(ToDo().create_tools())
     return available_tools
@@ -57,8 +57,6 @@ def call(
         case _ if tool_name.startswith("switchbot_"):
             switchbot = Switchbot()
             return switchbot.call(tool_name, tool_args)
-        case _ if tool_name.startswith("alarm_"):
-            return Alarm().call(tool_name, tool_args)
         case _ if tool_name.startswith("browser_"):
             return Browser().call(tool_name, tool_args)
         case _ if tool_name.startswith("tenki_"):
@@ -71,6 +69,8 @@ def call(
             return MemoryTool().call(tool_name, tool_args)
         case _ if tool_name.startswith("skill_"):
             return Skill(deep=deep, interact=interact).call(tool_name, tool_args)
+        case _ if tool_name.startswith("schedule_"):
+            return Schedule().call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):
             return ToDo().call(tool_name, tool_args)
         case _ if tool_name.startswith("subagents_"):

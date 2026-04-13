@@ -22,6 +22,7 @@ from eliza.agents.full_operation import FullOperationAgent
 from eliza.agents.question import QuestionAgent
 from eliza.agents.router import IntentLabel, IntentRouter
 from eliza.agents.trivial import TrivialAgent
+from eliza.tools.schedule import run_scheduled_tasks_loop
 
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -78,10 +79,16 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Eliza Agent Server starting up...")
     auto_summary_task = asyncio.create_task(_auto_summary_loop())
+    schedule_runner_task = asyncio.create_task(run_scheduled_tasks_loop())
     yield
     auto_summary_task.cancel()
+    schedule_runner_task.cancel()
     try:
         await auto_summary_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await schedule_runner_task
     except asyncio.CancelledError:
         pass
     logger.info("Eliza Agent Server shutting down gracefully...")
