@@ -16,7 +16,7 @@ import eliza.tools
 logger = logging.getLogger(__name__)
 JST = ZoneInfo("Asia/Tokyo")
 
-_RUNNER_INTERVAL_SECONDS = 30
+_RUNNER_INTERVAL_SECONDS = 5
 
 
 class ScheduledTask(BaseModel):
@@ -173,7 +173,9 @@ async def run_scheduled_tasks_loop():
     while True:
         await asyncio.sleep(_RUNNER_INTERVAL_SECONDS)
         now = datetime.now(JST)
-        due_tasks = [t for t in _scheduled_tasks if t.status == "pending" and t.execute_at <= now]
+        due_tasks = [
+            t for t in _scheduled_tasks if t.status == "pending" and t.execute_at <= now
+        ]
         for task in due_tasks:
             task.status = "running"
             logger.info(
