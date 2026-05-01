@@ -40,6 +40,8 @@ class AgentResponse(BaseModel):
 
 
 class QuestionAgent:
+    agent_name = "question"
+
     def __init__(
         self,
         api_key: str,
@@ -121,11 +123,13 @@ class QuestionAgent:
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = path.read_text(encoding="utf-8").strip()
+            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name)
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
+        session.append(
+            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        )
 
         # memory summary 差し込み
         if self.use_memory:

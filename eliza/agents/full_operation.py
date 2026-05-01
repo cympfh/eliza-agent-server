@@ -40,6 +40,8 @@ class AgentResponse(BaseModel):
 
 
 class FullOperationAgent:
+    agent_name = "full_operation"
+
     def __init__(
         self,
         api_key: str,
@@ -85,14 +87,16 @@ class FullOperationAgent:
         """ELIZA.md の内容と現在時刻を system prompt として先頭に差し込む"""
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = path.read_text(encoding="utf-8").strip()
+            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name)
             if prompt:
                 logger.info(
                     f"[REQUEST ID: {request_id}] Injecting ELIZA.md as system prompt..."
                 )
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
+        session.append(
+            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        )
 
     def _inject_memory_summary(self, session: Any, request_id: str) -> None:
         """memory summary と直近の会話履歴を system メッセージとして差し込む"""

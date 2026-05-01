@@ -39,6 +39,8 @@ class AgentResponse(BaseModel):
 
 
 class TrivialAgent:
+    agent_name = "trivial"
+
     def __init__(
         self,
         api_key: str,
@@ -98,18 +100,22 @@ class TrivialAgent:
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = path.read_text(encoding="utf-8").strip()
+            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name)
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
+        session.append(
+            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        )
 
         # memory summary 差し込み
         if self.use_memory:
             summary = eliza.memory.get()
             recent_messages = eliza.memory.get_recent_messages(6)
             if summary or recent_messages:
-                summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+                summary_str = (
+                    json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+                )
                 session.append(
                     chat.system(
                         self._load_prompt(
