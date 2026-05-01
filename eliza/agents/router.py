@@ -15,6 +15,7 @@ class IntentLabel(str, Enum):
 
     Trivial = "Trivial"
     Question = "Question"
+    Translator = "Translator"
     FullOperation = "FullOperation"
 
 
@@ -24,7 +25,8 @@ class IntentResult(BaseModel):
             "ユーザーの直近の発言の意図。"
             "Trivial: 意味のない会話・挨拶・感謝など。"
             "Question: Web/X(Twitter)検索だけで答えられる質問。ローカルツール（スキル・スマート家電等）は不要。"
-            "FullOperation: スキル一覧に記載された機能（YouTube動画検索・再生、エアコン操作、ToDo管理、翻訳など）や PC/スマートホーム操作など外部ツール実行が必要なタスク。Web 検索が追加で必要な場合も含む。"
+            "Translator: テキストの翻訳リクエスト（「翻訳して」「訳して」「英語で言うと」など）。"
+            "FullOperation: スキル一覧に記載された機能（YouTube動画検索・再生、エアコン操作、ToDo管理など）や PC/スマートホーム操作など外部ツール実行が必要なタスク。Web 検索が追加で必要な場合も含む。"
         )
     )
     reason: str = Field(description="分類の根拠（日本語・簡潔に）")
@@ -50,7 +52,7 @@ class IntentRouter:
     def classify(self, messages: list[dict[str, str]], request_id: str) -> IntentResult:
         """会話履歴からユーザーの意図を分類する
 
-        軽量モデルを使って Trivial / Question / FullOperation の3クラスに structured output で分類する
+        軽量モデルを使って Trivial / Question / Translator / FullOperation の3クラスに structured output で分類する
 
         Parameters
         ----------
@@ -68,10 +70,11 @@ class IntentRouter:
         session.append(
             chat.system(
                 "あなたはユーザーの発言の意図を分類するアシスタントです。\n"
-                "会話の最後のユーザー発言を以下の3種類に分類してください。\n\n"
+                "会話の最後のユーザー発言を以下の4種類に分類してください。\n\n"
                 "- Trivial: 挨拶・雑談・感謝・相槌など意味のない会話\n"
                 "- Question: Web検索やX(Twitter)検索だけで答えられる質問。ローカルツール（スキル・スマート家電等）は一切不要なもの\n"
                 "純粋にインターネット検索だけで解決できるもの（ローカルツール不要）は Question にしてください。\n"
+                "- Translator: テキストの翻訳リクエスト（「翻訳して」「訳して」「英語で言うと」など）\n"
                 f"- FullOperation: 以下のスキル一覧に該当する操作: \n<skill_list>{skill_list}</skill_list>\n"
                 "またはツールの直接利用で解決できるタスク（PC操作、スマートホーム操作、天気取得など）\n"
                 "Question 同様に Web 検索、X検索を利用することもできます。"

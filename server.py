@@ -21,6 +21,7 @@ import eliza.tools
 from eliza.agents.full_operation import FullOperationAgent
 from eliza.agents.question import QuestionAgent
 from eliza.agents.router import IntentLabel, IntentRouter
+from eliza.agents.translator import TranslatorAgent
 from eliza.agents.trivial import TrivialAgent
 from eliza.tools.schedule import run_scheduled_tasks_loop
 
@@ -215,6 +216,17 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             elif intent_result.label == IntentLabel.Question:
                 result = await asyncio.to_thread(
                     QuestionAgent(
+                        api_key=XAI_API_KEY,
+                        use_memory=request.use_memory,
+                    ).run,
+                    messages=messages_dicts,
+                    request_id=request_id,
+                    detect_sleep=request.detect_sleep,
+                    query_hint=intent_result.query_hint,
+                )
+            elif intent_result.label == IntentLabel.Translator:
+                result = await asyncio.to_thread(
+                    TranslatorAgent(
                         api_key=XAI_API_KEY,
                         use_memory=request.use_memory,
                     ).run,
