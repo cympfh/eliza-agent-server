@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-26
+
+### Added
+- `TranslatorAgent` を新設し、翻訳リクエストを `IntentRouter` で専用ルーティング
+- 全 Agent に `agent_name` を追加し、Jinja2 テンプレート経由で `ELIZA.md` に渡す
+
+### Changed
+- 全 Agent を `grok-4.3` へ移行し、用途別に `reasoning_effort` を設定
+  - IntentRouter / TrivialAgent / TranslatorAgent / memory: `none`
+  - QuestionAgent: `low`
+  - FullOperationAgent / SubAgents: `medium`
+- `eliza/models.py` を `MODEL` + `*_REASONING_EFFORT` 定数に整理（`HEAVY_MODEL`/`LIGHT_MODEL` 廃止）
+- `xai-sdk` を `>=1.12.2` に引き上げ（`none`/`medium` reasoning_effort サポート）
+- スケジュールチェック間隔を 30 秒 → 5 秒に変更
+
+(git commit: 4cccd54)
+
 ## [0.4.0] - 2026-04-13
 
 ### Added
