@@ -10,7 +10,7 @@ from xai_sdk import Client, chat
 from xai_sdk.tools import code_execution, web_search, x_search
 
 import eliza.memory
-from eliza.models import HEAVY_MODEL
+from eliza.models import MODEL, QUESTION_REASONING_EFFORT
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,8 @@ class QuestionAgent:
             True のとき memory summary をプロンプトに差し込む
         """
         self.api_key = api_key
-        self.model = HEAVY_MODEL
+        self.model = MODEL
+        self.reasoning_effort = QUESTION_REASONING_EFFORT
         self.use_memory = use_memory
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
@@ -118,6 +119,7 @@ class QuestionAgent:
         session = client.chat.create(
             model=self.model,
             tools=[x_search(), web_search(), code_execution()],
+            reasoning_effort=self.reasoning_effort,
         )
 
         # ELIZA プロンプト差し込み

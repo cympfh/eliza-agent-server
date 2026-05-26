@@ -11,6 +11,8 @@ import xai_sdk.tools
 from pydantic import BaseModel, Field
 from xai_sdk.proto import chat_pb2
 
+from eliza.models import HEAVY_REASONING_EFFORT, MODEL
+
 
 @dataclass
 class SubAgentResponse:
@@ -33,7 +35,7 @@ class SubAgents:
         pass
 
     def _ask_grok(
-        self, question: str, model="grok-4-1-fast-reasoning"
+        self, question: str, model=MODEL, reasoning_effort=HEAVY_REASONING_EFFORT
     ) -> SubAgentResponse:
         """Grok agent に質問して回答を得る"""
         api_key = os.getenv("XAI_API_KEY")
@@ -44,6 +46,7 @@ class SubAgents:
                 xai_sdk.tools.x_search(),
                 xai_sdk.tools.web_search(),
             ],
+            reasoning_effort=reasoning_effort,
         )
         session.append(
             xai_sdk.chat.system(
@@ -54,7 +57,7 @@ class SubAgents:
         response = session.sample()
         return SubAgentResponse(
             name="grok",
-            model=model,
+            model=f"{model}({reasoning_effort})",
             answer=response.content.strip(),
         )
 

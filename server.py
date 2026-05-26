@@ -316,7 +316,7 @@ def _generate_summary_in_background(request_id: str):
     """バックグラウンドで summary 生成を実行する"""
     try:
         logger.info(f"[REQUEST ID: {request_id}] Generating summary ...")
-        result = eliza.memory.generate_summary(model="grok-4-1-fast")
+        result = eliza.memory.generate_summary()
         summary_str = json.dumps(result, ensure_ascii=False)
         logger.info(
             f"[REQUEST ID: {request_id}] Summary done: {summary_str[:500]}{'...' if len(summary_str) > 500 else ''}"

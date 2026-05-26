@@ -10,7 +10,7 @@ from xai_sdk import Client, chat
 
 import eliza.memory
 import eliza.tools
-from eliza.models import HEAVY_MODEL
+from eliza.models import HEAVY_REASONING_EFFORT, MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,8 @@ class FullOperationAgent:
             True のとき スキルを interact モードでレンダリングする
         """
         self.api_key = api_key
-        self.model = HEAVY_MODEL
+        self.model = MODEL
+        self.reasoning_effort = HEAVY_REASONING_EFFORT
         self.use_memory = use_memory
         self.deep = deep
         self.interact = interact
@@ -192,7 +193,7 @@ class FullOperationAgent:
         logger.info(
             f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
         )
-        session = client.chat.create(model=self.model, tools=available_tools)
+        session = client.chat.create(model=self.model, tools=available_tools, reasoning_effort=self.reasoning_effort)
 
         # プロンプト・会話履歴を順番に差し込む
         logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")

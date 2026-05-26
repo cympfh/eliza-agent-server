@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from xai_sdk import Client, chat
 
 import eliza.tools
-from eliza.models import LIGHT_MODEL
+from eliza.models import LIGHT_REASONING_EFFORT, MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class IntentRouter:
             ログ追跡用のリクエスト ID
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(model=LIGHT_MODEL)
+        session = client.chat.create(model=MODEL, reasoning_effort=LIGHT_REASONING_EFFORT)
 
         skills = eliza.tools.Skill().skills()
         skill_list = "\n".join(f"  - {s.name}: {s.description}" for s in skills)

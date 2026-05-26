@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 from xai_sdk import Client, chat
 
+from eliza.models import MODEL, SUMMARY_REASONING_EFFORT
+
 MEMORY_DIR = Path(".memory")
 MESSAGES_DB = MEMORY_DIR / "messages.sqlite"
 SUMMARY_DIR = MEMORY_DIR / "summary"
@@ -21,7 +23,10 @@ XAI_API_KEY = os.environ.get("XAI_API_KEY")
 
 
 def _call_grok(
-    system_prompt: str, user_message: str, model: str = "grok-3-fast"
+    system_prompt: str,
+    user_message: str,
+    model: str = MODEL,
+    reasoning_effort: str = SUMMARY_REASONING_EFFORT,
 ) -> str:
     """Grok に問い合わせてレスポンスを返す
 
@@ -33,9 +38,11 @@ def _call_grok(
         ユーザーメッセージ
     model
         使用する Grok モデル名
+    reasoning_effort
+        reasoning effort ("none" | "low" | "medium" | "high")
     """
     client = Client(api_key=XAI_API_KEY)
-    session = client.chat.create(model=model)
+    session = client.chat.create(model=model, reasoning_effort=reasoning_effort)
     session.append(chat.system(system_prompt))
     session.append(chat.user(user_message))
     response = session.sample()
@@ -179,7 +186,7 @@ def has_recent_messages(minutes: int = 30) -> bool:
     return row is not None
 
 
-def generate_summary(model: str = "grok-4-1-fast") -> dict:
+def generate_summary(model: str = MODEL, reasoning_effort: str = SUMMARY_REASONING_EFFORT) -> dict:
     """SQLite の全メッセージから日別・全期間の summary を生成して返す
 
     日付ごとにグループ化して各日の summary を生成しキャッシュする
@@ -257,7 +264,7 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
             '"tendencies": ["夜型", "最新情報を求める傾向がある"], '
             '"personal_notes": ["一人暮らし", "猫アレルギー"]}}'
         )
-        raw = _call_grok(system_prompt, messages_text, model=model)
+        raw = _call_grok(system_prompt, messages_text, model=model, reasoning_effort=reasoning_effort)
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
@@ -324,7 +331,7 @@ def generate_summary(model: str = "grok-4-1-fast") -> dict:
         '"tendencies": ["夜型", "最新情報を求める傾向がある"], '
         '"personal_notes": ["一人暮らし", "猫アレルギー"]}}'
     )
-    raw_all = _call_grok(system_prompt_all, all_text, model=model)
+    raw_all = _call_grok(system_prompt_all, all_text, model=model, reasoning_effort=reasoning_effort)
     try:
         parsed_all = json.loads(raw_all)
     except json.JSONDecodeError:

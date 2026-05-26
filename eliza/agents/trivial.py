@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from xai_sdk import Client, chat
 
 import eliza.memory
-from eliza.models import LIGHT_MODEL
+from eliza.models import LIGHT_REASONING_EFFORT, MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,8 @@ class TrivialAgent:
             True のとき memory summary をプロンプトに差し込む
         """
         self.api_key = api_key
-        self.model = LIGHT_MODEL
+        self.model = MODEL
+        self.reasoning_effort = LIGHT_REASONING_EFFORT
         self.use_memory = use_memory
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
@@ -95,7 +96,7 @@ class TrivialAgent:
             IntentRouter から渡されるクエリヒント
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(model=self.model)
+        session = client.chat.create(model=self.model, reasoning_effort=self.reasoning_effort)
 
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
