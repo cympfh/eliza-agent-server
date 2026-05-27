@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eliza</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+    
+    :root {
+      --accent: #22d3ee;
+    }
+    
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    
+    .mono {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    .chat-container {
+      scrollbar-width: thin;
+      scrollbar-color: #3f3f46 #18181b;
+    }
+
+    .message-bubble {
+      transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .user-bubble {
+      background: linear-gradient(135deg, #0e7490 0%, #164e63 100%);
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    .assistant-bubble {
+      background-color: #18181b;
+      border: 1px solid #27272a;
+    }
+
+    .prose {
+      font-size: 15px;
+      line-height: 1.65;
+    }
+    
+    .prose p { margin: 0.5em 0; }
+    .prose p:first-child { margin-top: 0; }
+    .prose p:last-child { margin-bottom: 0; }
+    
+    .prose pre {
+      background-color: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    
+    .prose code {
+      background-color: #27272a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .tool-call {
+      background-color: #09090b;
+      border: 1px solid #3f3f46;
+      font-size: 12px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #27272a;
+      transition: .2s;
+      border-radius: 9999px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #71717a;
+      transition: .2s;
+      border-radius: 9999px;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: #22d3ee;
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(18px);
+      background-color: white;
+    }
+
+    .section-header {
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #52525b;
+      font-weight: 600;
+    }
+
+    .chat-message {
+      animation: fadeIn 0.15s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+  <div class="max-w-[820px] mx-auto h-screen flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-3 bg-zinc-950/80 backdrop-blur-md z-10">
+      <div class="flex items-center gap-x-3">
+        <div class="flex items-center gap-x-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center">
+            <span class="text-zinc-950 font-bold text-xl tracking-tighter">E</span>
+          </div>
+          <div onclick="showSessionModal()" class="cursor-pointer select-none">
+            <div class="font-semibold text-xl tracking-tight">Eliza</div>
+            <div id="current-session-title" class="text-[10px] text-zinc-500 -mt-1 hover:text-zinc-400 transition-colors flex items-center gap-x-0.5">
+              <span>新しい会話</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex items-center gap-x-4">
+        <!-- Deep -->
+        <div class="flex items-center gap-x-2">
+          <div class="text-xs text-zinc-400">Deep</div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="deep-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Interact -->
+        <div class="flex items-center gap-x-2">
+          <div class="text-xs text-zinc-400">Interact</div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="interact-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="w-px h-5 bg-zinc-800"></div>
+
+        <!-- QR Code -->
+        <button onclick="showQRModal()"
+                class="flex items-center gap-x-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors text-zinc-400 hover:text-zinc-300"
+                title="このページのQRコードを表示">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h4M3 10h4m-4 5h4M14 5h7m-7 5h7m-7 5h7M5 3v4m5-4v4m5-4v4M5 8v4m5-4v4m5-4v4M5 13v4m5-4v4m5-4v4" />
+            <rect x="3" y="3" width="6" height="6" rx="1" />
+            <rect x="15" y="3" width="6" height="6" rx="1" />
+            <rect x="3" y="15" width="6" height="6" rx="1" />
+          </svg>
+        </button>
+
+        <!-- 新しい会話 -->
+        <button onclick="startNewConversation()"
+                class="flex items-center gap-x-1.5 text-xs px-3 py-1.5 rounded-xl border border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors text-zinc-400 hover:text-zinc-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 8v4m-2-2h4" />
+          </svg>
+          <span>新しい会話</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div id="chat" 
+         class="chat-container flex-1 overflow-y-auto px-5 py-6 space-y-6 bg-zinc-950">
+    </div>
+
+    <!-- Input Area -->
+    <div class="border-t border-zinc-800 p-4 bg-zinc-950">
+      <div class="flex gap-x-2 items-end">
+        <div class="flex-1 relative">
+          <textarea id="input" 
+                    rows="1"
+                    placeholder="メッセージを入力..."
+                    class="w-full resize-none bg-zinc-900 border border-zinc-800 focus:border-zinc-700 rounded-3xl px-5 py-3.5 text-[15px] placeholder:text-zinc-500 focus:outline-none max-h-40"
+                    onkeydown="handleKeyDown(event)"></textarea>
+        </div>
+        <button onclick="sendMessage()"
+                class="h-12 w-12 flex-shrink-0 rounded-2xl bg-white hover:bg-zinc-100 active:bg-zinc-200 transition-all flex items-center justify-center text-zinc-900 shadow-lg shadow-black/30">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.875L5.999 12zm0 0h7.5" />
+          </svg>
+        </button>
+      </div>
+      <div class="text-[10px] text-center text-zinc-600 mt-2 tracking-wide">ブラウザ内で完結・履歴はサーバに保存されません</div>
+    </div>
+  </div>
+
+  <!-- Session Modal -->
+  <div id="session-modal" onclick="if (event.target.id === 'session-modal') hideSessionModal()" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div onclick="event.stopImmediatePropagation()" class="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-md mx-4 overflow-hidden shadow-2xl">
+      <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+        <div class="font-medium text-sm">会話セッション</div>
+        <button onclick="createNewSessionFromModal()" class="text-xs px-3 py-1 rounded-xl bg-white text-zinc-950 flex items-center gap-x-1.5 active:bg-zinc-200 transition-colors">
+          <span>+ 新規</span>
+        </button>
+      </div>
+      <div id="session-list" class="max-h-[420px] overflow-y-auto py-1 text-sm divide-y divide-zinc-800/60">
+        <!-- JS populated -->
+      </div>
+      <div class="px-4 py-2.5 border-t border-zinc-800 text-[10px] text-zinc-500 flex justify-between items-center">
+        <div>localStorage に保存（このブラウザのみ）</div>
+        <button onclick="hideSessionModal()" class="text-xs px-2 py-0.5 hover:bg-zinc-800 rounded transition-colors">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Modal -->
+  <div id="qr-modal" onclick="if (event.target.id === 'qr-modal') hideQRModal()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center">
+    <div onclick="event.stopImmediatePropagation()" class="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-[340px] mx-4 p-6 shadow-2xl flex flex-col items-center">
+      <div class="text-sm font-medium mb-4">このページにアクセス</div>
+      
+      <div id="qr-container" class="bg-white p-4 rounded-2xl shadow-inner"></div>
+      
+      <div id="qr-url" class="mt-4 text-[11px] text-zinc-400 font-mono break-all text-center px-2 max-w-[280px]"></div>
+      
+      <div class="flex gap-x-2 mt-5 w-full">
+        <button onclick="copyCurrentURL()" class="flex-1 text-xs py-2 rounded-2xl border border-zinc-700 hover:bg-zinc-800 transition-colors">URLをコピー</button>
+        <button onclick="hideQRModal()" class="flex-1 text-xs py-2 rounded-2xl bg-white text-zinc-950 active:bg-zinc-200 transition-colors">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tailwind config
+    function initTailwind() {
+      document.documentElement.style.setProperty('--accent', '#22d3ee');
+    }
+
+    // State - multi session support
+    const SESSIONS_KEY = 'eliza_sessions';
+    const CURRENT_KEY = 'eliza_current_session_id';
+    let sessions = [];
+    let currentSessionId = null;
+    let messages = []; // current session's messages (reference)
+
+    function generateTitle(msgs) {
+      const firstUser = (msgs || []).find(m => m.role === 'user' && m.content && m.content.trim());
+      if (firstUser) {
+        const t = firstUser.content.trim().slice(0, 42);
+        return t.length < firstUser.content.trim().length ? t + '...' : t;
+      }
+      return '新しい会話';
+    }
+
+    function saveSessions() {
+      try {
+        localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+        if (currentSessionId) localStorage.setItem(CURRENT_KEY, currentSessionId);
+      } catch (e) {}
+    }
+
+    function saveCurrentSession() {
+      if (!currentSessionId) return;
+      const idx = sessions.findIndex(s => s.id === currentSessionId);
+      if (idx >= 0) {
+        sessions[idx].messages = JSON.parse(JSON.stringify(messages)); // deep copy
+        sessions[idx].updated_at = Date.now();
+        if (!sessions[idx].title || sessions[idx].title === '新しい会話') {
+          sessions[idx].title = generateTitle(messages);
+        }
+      }
+      saveSessions();
+    }
+
+    function loadSessions() {
+      try {
+        const saved = localStorage.getItem(SESSIONS_KEY);
+        sessions = saved ? JSON.parse(saved) : [];
+
+        // 古い welcome-only セッションを掃除（ユーザー発言があるものだけ残す）
+        sessions = sessions.filter(s => (s.messages || []).some(m => m.role === 'user'));
+
+        currentSessionId = localStorage.getItem(CURRENT_KEY);
+
+        const cur = sessions.find(s => s.id === currentSessionId);
+        if (cur) {
+          messages = cur.messages || [];
+          // legacy trim
+          messages.forEach(m => {
+            if (typeof m.content === 'string') m.content = m.content.trim();
+            if (m.meta && typeof m.meta.reasoning === 'string') m.meta.reasoning = m.meta.reasoning.trim();
+          });
+        } else {
+          // current が存在しない / 実会話セッションでない → 空の新規状態で開始
+          // （ユーザー発言があるまで sessions に保存しない）
+          if (!currentSessionId) {
+            currentSessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+            localStorage.setItem(CURRENT_KEY, currentSessionId);
+          }
+          messages = [];
+        }
+      } catch (e) {
+        sessions = [];
+        currentSessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+        localStorage.setItem(CURRENT_KEY, currentSessionId);
+        messages = [];
+      }
+    }
+
+    function createNewSession(doSave = true) {
+      const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+      const now = Date.now();
+      const newSess = {
+        id: id,
+        title: '新しい会話',
+        created_at: now,
+        updated_at: now,
+        messages: []
+      };
+      sessions.unshift(newSess);
+      currentSessionId = id;
+      messages = newSess.messages;
+      if (doSave) saveSessions();
+      return id;
+    }
+
+    function switchToSession(id) {
+      const sess = sessions.find(s => s.id === id);
+      if (!sess) return;
+      saveCurrentSession();
+      currentSessionId = id;
+      messages = sess.messages || [];
+      // legacy trim
+      messages.forEach(m => {
+        if (typeof m.content === 'string') m.content = m.content.trim();
+        if (m.meta && typeof m.meta.reasoning === 'string') m.meta.reasoning = m.meta.reasoning.trim();
+      });
+      saveSessions();
+      renderMessages();
+      updateHeaderSessionInfo();
+    }
+
+    function deleteSession(id) {
+      if (sessions.length <= 1) {
+        alert('最後のセッションは削除できません');
+        return false;
+      }
+      const idx = sessions.findIndex(s => s.id === id);
+      if (idx < 0) return false;
+      const wasCurrent = (id === currentSessionId);
+      sessions.splice(idx, 1);
+      if (wasCurrent) {
+        currentSessionId = sessions[0].id;
+        messages = sessions[0].messages || [];
+      }
+      saveSessions();
+      if (wasCurrent) {
+        renderMessages();
+        updateHeaderSessionInfo();
+      }
+      return true;
+    }
+
+    function startNewConversation() {
+      // 即時実行（confirm なし）
+      const hasRealTalk = messages.some(m => m.role === 'user');
+      if (hasRealTalk) {
+        saveCurrentSession();
+      }
+      // 新しい空セッションを開始（ユーザー発言があるまで sessions には保存しない）
+      currentSessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+      messages = [];
+      localStorage.setItem(CURRENT_KEY, currentSessionId);
+      renderMessages();
+      updateHeaderSessionInfo();
+    }
+
+    // Welcome は renderMessages 側で仮想表示する（永続化しない）
+
+    // Render all messages
+    function renderMessages() {
+      const container = document.getElementById('chat');
+      container.innerHTML = '';
+
+      // 空のときは welcome を仮想表示（messages には入れない・保存しない）
+      if (messages.length === 0) {
+        const welcome = document.createElement('div');
+        welcome.className = `flex justify-start chat-message`;
+        welcome.innerHTML = `
+          <div class="max-w-[86%]">
+            <div class="assistant-bubble px-4 py-3.5 rounded-3xl rounded-bl-lg">
+              <div class="prose prose-zinc prose-invert max-w-none text-[15px] text-zinc-100">こんにちは。私はElizaです。家電操作、検索、日常のタスクなど何でもどうぞ。</div>
+            </div>
+          </div>
+        `;
+        container.appendChild(welcome);
+      }
+
+      messages.forEach((msg, idx) => {
+        const isUser = msg.role === 'user';
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} chat-message`;
+
+        if (isUser) {
+          // User message
+          wrapper.innerHTML = `
+            <div class="max-w-[78%]">
+              <div class="user-bubble text-white px-4 py-3 rounded-3xl rounded-br-lg text-[15px] leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.content)}</div>
+            </div>
+          `;
+        } else {
+          // Assistant message with rich info
+          const meta = msg.meta || {};
+          const hasReasoning = meta.reasoning && meta.reasoning.trim().length > 0;
+          const hasCitations = meta.citations && meta.citations.length > 0;
+          const hasTools = meta.tool && meta.tool.length > 0;
+          const elapsed = meta.elapsed_ms || 0;
+
+          let html = `
+            <div class="max-w-[86%] group">
+              <div class="assistant-bubble px-4 py-3.5 rounded-3xl rounded-bl-lg">
+                <!-- Main content -->
+                <div class="prose prose-zinc prose-invert max-w-none text-[15px] text-zinc-100" id="content-${idx}">${marked.parse(msg.content || '')}</div>
+          `;
+
+          // Reasoning
+          if (hasReasoning) {
+            html += `
+              <details class="mt-3 bg-zinc-950/60 border border-zinc-800 rounded-2xl px-3 py-1 text-sm">
+                <summary class="cursor-pointer select-none text-xs section-header py-1 flex items-center gap-x-1.5">
+                  <span>思考過程</span>
+                </summary>
+                <div class="text-zinc-400 text-xs leading-relaxed pt-2 pb-1 whitespace-pre-wrap mono">${escapeHtml((meta.reasoning || '').trim())}</div>
+              </details>
+            `;
+          }
+
+          // Citations
+          if (hasCitations) {
+            html += `
+              <div class="mt-3 pt-3 border-t border-zinc-800">
+                <div class="section-header mb-1.5">出典</div>
+                <div class="space-y-1">
+            `;
+            meta.citations.forEach(url => {
+              const short = url.length > 55 ? url.slice(0, 52) + '...' : url;
+              html += `
+                <a href="${url}" target="_blank" 
+                   class="block text-xs text-cyan-400 hover:text-cyan-300 transition-colors truncate">${escapeHtml(short)}</a>
+              `;
+            });
+            html += `</div></div>`;
+          }
+
+          // Tools
+          if (hasTools) {
+            html += `
+              <details class="mt-3 bg-zinc-950/60 border border-zinc-800 rounded-2xl px-3 py-1 text-sm">
+                <summary class="cursor-pointer select-none text-xs section-header py-1 flex items-center gap-x-1.5">
+                  <span>ツール実行履歴（${meta.tool.length}）</span>
+                </summary>
+                <div class="pt-2 space-y-2">
+            `;
+            meta.tool.forEach((pair, i) => {
+              const call = pair[0] || {};
+              const result = pair[1];
+              const name = call.name || 'tool';
+              const args = JSON.stringify(call.arguments || call.args || {}, null, 2);
+              const resStr = result ? JSON.stringify(result, null, 2) : '(結果なし)';
+              
+              html += `
+                <div class="tool-call rounded-xl p-2.5 text-[11px] mono">
+                  <div class="text-amber-400 font-medium mb-0.5">${escapeHtml(name)}</div>
+                  <div class="text-zinc-400 mb-1">入力: ${escapeHtml(args.length > 180 ? args.slice(0,180)+'...' : args)}</div>
+                  <div class="text-emerald-400">結果: ${escapeHtml(resStr.length > 220 ? resStr.slice(0,220)+'...' : resStr)}</div>
+                </div>
+              `;
+            });
+            html += `</div></details>`;
+          }
+
+          // Footer meta
+          html += `
+                <div class="flex items-center justify-between mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    ${elapsed ? `<span>${elapsed}ms</span>` : ''}
+                  </div>
+                  <button onclick="copyMessage(${idx})" 
+                          class="opacity-40 hover:opacity-100 transition-opacity flex items-center gap-x-1 text-xs px-2 py-0.5 rounded hover:bg-zinc-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M8 16v-4m4 4v4m4-8v8m4-4v-4m-16 4h.01M12 4v.01" />
+                    </svg>
+                    <span>コピー</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+
+          wrapper.innerHTML = html;
+        }
+
+        container.appendChild(wrapper);
+      });
+
+      // Scroll to bottom
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function copyMessage(index) {
+      const msg = messages[index];
+      if (!msg) return;
+      
+      const text = msg.content || '';
+      navigator.clipboard.writeText(text).then(() => {
+        const btns = document.querySelectorAll('button[onclick*="copyMessage"]');
+        // simple feedback
+        const origTitle = document.title;
+        document.title = 'コピーしました';
+        setTimeout(() => { document.title = origTitle; }, 1200);
+      }).catch(() => {
+        // fallback
+        prompt('コピーしてください', text);
+      });
+    }
+
+    // Session modal functions
+    function updateHeaderSessionInfo() {
+      const el = document.getElementById('current-session-title');
+      if (!el) return;
+      const cur = sessions.find(s => s.id === currentSessionId);
+      el.innerHTML = `
+        <span>${escapeHtml((cur && cur.title) || '新しい会話')}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      `;
+    }
+
+    function showSessionModal() {
+      const modal = document.getElementById('session-modal');
+      const list = document.getElementById('session-list');
+      list.innerHTML = '';
+
+      // 実会話があるセッションのみ表示（ユーザー発言前は保存されていない）
+      const displaySessions = sessions.filter(s => (s.messages || []).some(m => m.role === 'user'));
+      displaySessions.forEach(sess => {
+        const isCurrent = sess.id === currentSessionId;
+        const row = document.createElement('div');
+        row.className = `px-4 py-2.5 flex items-center gap-x-3 hover:bg-zinc-800/60 cursor-pointer ${isCurrent ? 'bg-zinc-800/40' : ''}`;
+
+        const ts = sess.updated_at || sess.created_at;
+        const d = new Date(ts);
+        const dateStr = d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'}) + ' ' +
+                        d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+        const count = (sess.messages || []).length;
+
+        row.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-[14px] truncate ${isCurrent ? 'text-cyan-300' : 'text-zinc-200'}">${escapeHtml(sess.title || '無題')}</div>
+            <div class="text-[10px] text-zinc-500 mt-0.5">${dateStr} · ${count} メッセージ</div>
+          </div>
+          <div class="flex items-center gap-x-1 flex-shrink-0">
+            ${isCurrent ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400">現在</span>' : ''}
+            <button class="p-1.5 text-zinc-500 hover:text-red-400 rounded hover:bg-zinc-950" title="削除">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.595 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.595-1.858L5 7m5 4v6m4-6v6m1-10V9a1 1 0 00-1-1h-4a1 1 0 00-1 1v2M7 7h10" />
+              </svg>
+            </button>
+          </div>
+        `;
+
+        // click to switch (except delete button)
+        row.onclick = (ev) => {
+          if (ev.target.closest('button')) return;
+          hideSessionModal();
+          if (!isCurrent) switchToSession(sess.id);
+        };
+
+        // delete button
+        const delBtn = row.querySelector('button');
+        delBtn.onclick = (ev) => {
+          ev.stopImmediatePropagation();
+          if (!confirm('このセッションを完全に削除しますか？')) return;
+          const ok = deleteSession(sess.id);
+          if (ok) {
+            // refresh modal list
+            showSessionModal();
+          }
+        };
+
+        list.appendChild(row);
+      });
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function hideSessionModal() {
+      const modal = document.getElementById('session-modal');
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+    }
+
+    function createNewSessionFromModal() {
+      hideSessionModal();
+      saveCurrentSession();
+      // 新規空セッション開始（ユーザー発言まで保存しない）
+      currentSessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+      messages = [];
+      localStorage.setItem(CURRENT_KEY, currentSessionId);
+      renderMessages();
+      updateHeaderSessionInfo();
+    }
+
+    // QR Code functions
+    let _qrInstance = null;
+
+    function showQRModal() {
+      const modal = document.getElementById('qr-modal');
+      const container = document.getElementById('qr-container');
+      const urlEl = document.getElementById('qr-url');
+
+      // clean previous
+      container.innerHTML = '';
+      if (_qrInstance) {
+        _qrInstance.clear();
+        _qrInstance = null;
+      }
+
+      const url = "http://100.84.144.97:9096";
+      urlEl.textContent = url;
+
+      // Generate QR (qrcodejs)
+      try {
+        _qrInstance = new QRCode(container, {
+          text: url,
+          width: 220,
+          height: 220,
+          colorDark: "#111111",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      } catch (e) {
+        // fallback: show text
+        container.innerHTML = `<div class="text-xs text-red-400 p-4">QR生成に失敗: ${e.message}</div>`;
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function hideQRModal() {
+      const modal = document.getElementById('qr-modal');
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+      // optional: clear qr
+      const container = document.getElementById('qr-container');
+      if (container) container.innerHTML = '';
+      if (_qrInstance) {
+        _qrInstance.clear();
+        _qrInstance = null;
+      }
+    }
+
+    function copyCurrentURL() {
+      const url = "http://100.84.144.97:9096";
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = document.title;
+        document.title = 'コピーしました';
+        setTimeout(() => { document.title = orig; }, 900);
+      }).catch(() => {
+        prompt('URLをコピーしてください', url);
+      });
+    }
+
+    // Send message
+    async function sendMessage() {
+      const input = document.getElementById('input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Add user message
+      const userMsg = { role: 'user', content: text };
+      messages.push(userMsg);
+
+      // ユーザー発言が初めて入った瞬間にのみセッションを永続化開始
+      // （それまでは sessions 配列に保存しない）
+      if (!sessions.some(s => s.id === currentSessionId)) {
+        const now = Date.now();
+        const title = generateTitle(messages);
+        const newSess = {
+          id: currentSessionId,
+          title: title,
+          created_at: now,
+          updated_at: now,
+          messages: JSON.parse(JSON.stringify(messages))
+        };
+        sessions.unshift(newSess);
+        saveSessions();
+      } else {
+        saveCurrentSession();
+      }
+      renderMessages();
+
+      // 入力欄を空にする
+      input.value = '';
+      input.style.height = 'auto';
+
+      // Prepare request
+      const deep = document.getElementById('deep-toggle').checked;
+      const interact = document.getElementById('interact-toggle').checked;
+
+      // Send only role+content (backend only needs these)
+      const payloadMessages = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const body = {
+        messages: payloadMessages,
+        use_memory: true,
+        detect_sleep: true,
+        max_tool_loops: 5,
+        deep: deep,
+        interact: interact
+      };
+
+      // Show temporary thinking indicator
+      const container = document.getElementById('chat');
+      const thinking = document.createElement('div');
+      thinking.id = 'thinking';
+      thinking.className = 'flex justify-start';
+      thinking.innerHTML = `
+        <div class="max-w-[86%]">
+          <div class="assistant-bubble px-4 py-3 rounded-3xl rounded-bl-lg flex items-center gap-x-2 text-sm text-zinc-400">
+            <div class="flex gap-x-1">
+              <div class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce"></div>
+              <div class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 120ms"></div>
+              <div class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 240ms"></div>
+            </div>
+            <span>考え中...</span>
+          </div>
+        </div>
+      `;
+      container.appendChild(thinking);
+      container.scrollTop = container.scrollHeight;
+
+      try {
+        const res = await fetch('/eliza/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`HTTP ${res.status}: ${err}`);
+        }
+
+        const data = await res.json();
+
+        // Remove thinking
+        thinking.remove();
+
+        // Build assistant message with rich meta
+        const assistantMsg = {
+          role: 'assistant',
+          content: (data.message?.content || '(応答なし)').trim(),
+          meta: {
+            reasoning: (data.reasoning || '').trim(),
+            citations: data.citations || [],
+            tool: data.tool || null,
+            elapsed_ms: data.elapsed_ms || 0,
+            sleep: data.sleep || false
+          }
+        };
+
+        messages.push(assistantMsg);
+        saveCurrentSession();
+        renderMessages();
+        updateHeaderSessionInfo();
+
+        // Optional: sleep visual hint
+        if (data.sleep) {
+          setTimeout(() => {
+            const last = document.getElementById('chat').lastElementChild;
+            if (last) last.style.opacity = '0.6';
+          }, 300);
+        }
+
+      } catch (err) {
+        thinking.remove();
+        
+        const errorMsg = {
+          role: 'assistant',
+          content: `エラーが発生しました: ${err.message}`,
+          meta: { error: true }
+        };
+        messages.push(errorMsg);
+        saveCurrentSession();
+        renderMessages();
+        updateHeaderSessionInfo();
+      }
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    // Auto-grow textarea
+    function initTextarea() {
+      const ta = document.getElementById('input');
+      
+      ta.addEventListener('input', () => {
+        ta.style.height = 'auto';
+        const newH = Math.min(ta.scrollHeight, 160);
+        ta.style.height = newH + 'px';
+      });
+
+      // Initial focus
+      setTimeout(() => ta.focus(), 300);
+    }
+
+    // Init toggles (no persistence needed)
+    function initToggles() {
+      // Default both off (safe)
+      const deep = document.getElementById('deep-toggle');
+      const interact = document.getElementById('interact-toggle');
+      
+      deep.checked = false;
+      interact.checked = false;
+    }
+
+    // Main bootstrap
+    function bootstrap() {
+      initTailwind();
+      initToggles();
+      initTextarea();
+      
+      loadSessions();
+      renderMessages();
+      updateHeaderSessionInfo();
+
+      // Keyboard focus hint
+      const chat = document.getElementById('chat');
+      chat.addEventListener('click', () => {
+        document.getElementById('input').focus();
+      });
+    }
+
+    // Start
+    window.onload = bootstrap;
+  </script>
+</body>
+</html>

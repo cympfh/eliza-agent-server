@@ -13,7 +13,9 @@ from zoneinfo import ZoneInfo
 
 import uvicorn
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Security
+from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import eliza.memory
@@ -101,6 +103,14 @@ app = FastAPI(
     description="Grok API with x_search, web_search, and Switchbot tools",
     lifespan=lifespan,
 )
+
+# シンプルなブラウザUI（GET /）
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/", include_in_schema=False)
+async def get_root():
+    """ブラウザ向けシンプルチャットUIを返す"""
+    return FileResponse("static/index.html")
 
 
 def _generate_message_id() -> str:
