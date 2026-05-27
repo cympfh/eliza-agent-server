@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-27
+
+### Added
+- ブラウザ向けフル機能チャットUI (GET /) を追加
+  - Tailwind + marked.js によるモダンなダークテーマ単一ファイルUI
+  - 複数会話セッション管理（localStorage永続化、最初のユーザー発言があるまで保存しない設計）
+  - QRコードモーダル（ヘッダー右上）で http://100.84.144.97:9096 を簡単に共有
+  - ヘッダーボタンを「クリア」から「新しい会話」へ変更 + 吹き出し＋アイコン
+  - 内部リファクタ: `clearHistory` → `startNewConversation`（命名の明確化）
+  - 仮想welcomeメッセージ（messages配列には保存されない）、reasoning/citations/toolsの折り畳み表示、Deep/Interactトグル対応
+
+- server.py に `/static` マウントとルート `GET /` で `static/index.html` を返すエンドポイントを追加
+
+(git commit: 5e0df98)
+
 ## [0.5.0] - 2026-05-26
 
 ### Added
