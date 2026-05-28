@@ -1,3 +1,3 @@
 serve:
 	@echo Serving on Local Development Server...
-	ELIZA_SECRET_KEY= uv run ./server.py
+	uv run ./server.py

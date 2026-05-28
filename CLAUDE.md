@@ -48,7 +48,6 @@ server.py           # FastAPI エントリポイント
 | `SKILL_FETCHED_INSTRUCTION.md` | skill_use 直後に「まだ実行していない」と釘を刺す |
 | `TOOL_LOOP_INSTRUCTION.md` | ツールループ継続・終了の判断指示 |
 | `TOOL_REQUIRED_INSTRUCTION.md` | ツール使用意図を示したのに呼ばなかった場合のリトライ指示 |
-| `SLEEP_INSTRUCTION.md` | sleep 検出の指示 |
 
 すべて Jinja2 テンプレートとして `_load_prompt()` で読み込まれる。
 

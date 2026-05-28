@@ -18,12 +18,8 @@ JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
-    reasoning: str = Field(
-        description="回答を導くにあたっての思考過程・推論。ユーザーには見せない"
-    )
-    answer: str = Field(
-        description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
-    )
+    reasoning: str = Field(description="回答を導くにあたっての思考過程・推論。ユーザーには見せない")
+    answer: str = Field(description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える")
     citations: list[str] = Field(
         default_factory=list,
         description="参照した URL のリスト。なければ空リスト",
@@ -33,7 +29,6 @@ class AgentAnswer(BaseModel):
 class AgentResponse(BaseModel):
     content: str
     reasoning: str
-    sleep: bool
     tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]]
     citations: list[str]
 
@@ -75,7 +70,6 @@ class TrivialAgent:
         self,
         messages: list[dict[str, str]],
         request_id: str,
-        detect_sleep: bool = True,
         query_hint: str = "",
     ) -> AgentResponse:
         """会話履歴を受け取り雑談応答を生成する
@@ -86,15 +80,11 @@ class TrivialAgent:
             会話履歴 (role と content を持つ dict のリスト)
         request_id
             ログ追跡用のリクエスト ID
-        detect_sleep
-            True のとき sleep 検出プロンプトを差し込む
         query_hint
             IntentRouter から渡されるクエリヒント
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(
-            model=self.model, reasoning_effort=self.reasoning_effort
-        )
+        session = client.chat.create(model=self.model, reasoning_effort=self.reasoning_effort)
 
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
@@ -103,9 +93,7 @@ class TrivialAgent:
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(
-            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
-        )
+        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
 
         for msg in messages:
             if msg["role"] == "system":
@@ -123,17 +111,12 @@ class TrivialAgent:
         if query_hint:
             session.append(chat.system(query_hint))
 
-        if detect_sleep:
-            session.append(chat.system(self._load_prompt("SLEEP_INSTRUCTION.md")))
-
         logger.info(f"[REQUEST ID: {request_id}] TrivialAgent: generating response...")
         _, agent_answer = session.parse(AgentAnswer)
 
-        sleep = detect_sleep and "[SLEEP]" in agent_answer.answer
         return AgentResponse(
             content=agent_answer.answer,
             reasoning=agent_answer.reasoning,
-            sleep=sleep,
             tool_history=[],
             citations=agent_answer.citations,
         )

@@ -759,7 +759,6 @@
 
       const body = {
         messages: payloadMessages,
-        detect_sleep: true,
         max_tool_loops: 5,
         deep: deep,
         interact: interact
@@ -810,8 +809,7 @@
             reasoning: (data.reasoning || '').trim(),
             citations: data.citations || [],
             tool: data.tool || null,
-            elapsed_ms: data.elapsed_ms || 0,
-            sleep: data.sleep || false
+            elapsed_ms: data.elapsed_ms || 0
           }
         };
 
@@ -819,14 +817,6 @@
         saveCurrentSession();
         renderMessages();
         updateHeaderSessionInfo();
-
-        // Optional: sleep visual hint
-        if (data.sleep) {
-          setTimeout(() => {
-            const last = document.getElementById('chat').lastElementChild;
-            if (last) last.style.opacity = '0.6';
-          }, 300);
-        }
 
       } catch (err) {
         thinking.remove();

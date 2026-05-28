@@ -19,12 +19,8 @@ JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
-    reasoning: str = Field(
-        description="回答を導くにあたっての思考過程・推論。ユーザーには見せない"
-    )
-    answer: str = Field(
-        description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
-    )
+    reasoning: str = Field(description="回答を導くにあたっての思考過程・推論。ユーザーには見せない")
+    answer: str = Field(description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える")
     citations: list[str] = Field(
         default_factory=list,
         description="回答の根拠にした URL のリスト。参照した Web ページや検索結果の URL を含める。なければ空リスト",
@@ -34,7 +30,6 @@ class AgentAnswer(BaseModel):
 class AgentResponse(BaseModel):
     content: str
     reasoning: str
-    sleep: bool
     tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]]
     citations: list[str]
 
@@ -92,7 +87,6 @@ class QuestionAgent:
         self,
         messages: list[dict[str, str]],
         request_id: str,
-        detect_sleep: bool = True,
         query_hint: str = "",
     ) -> AgentResponse:
         """会話履歴を受け取り検索ベースで質問に回答する
@@ -106,8 +100,6 @@ class QuestionAgent:
             会話履歴 (role と content を持つ dict のリスト)
         request_id
             ログ追跡用のリクエスト ID
-        detect_sleep
-            True のとき sleep 検出プロンプトを差し込む
         query_hint
             IntentRouter から渡されるクエリヒント
         """
@@ -125,9 +117,7 @@ class QuestionAgent:
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(
-            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
-        )
+        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
 
         for msg in messages:
             if msg["role"] == "system":
@@ -144,9 +134,6 @@ class QuestionAgent:
 
         if query_hint:
             session.append(chat.system(query_hint))
-
-        if detect_sleep:
-            session.append(chat.system(self._load_prompt("SLEEP_INSTRUCTION.md")))
 
         MAX_LOOP = 10
         logger.info(f"[REQUEST ID: {request_id}] QuestionAgent: generating response...")
@@ -167,23 +154,15 @@ class QuestionAgent:
                     session.append(chat.assistant(agent_answer.answer))
                 if agent_answer.answer or agent_answer.reasoning:
                     session.append(
-                        chat.assistant(
-                            f"前回の回答: {agent_answer.answer}.\n前回の推論: {agent_answer.reasoning}."
-                        )
+                        chat.assistant(f"前回の回答: {agent_answer.answer}.\n前回の推論: {agent_answer.reasoning}.")
                     )
-                session.append(
-                    chat.system(
-                        self._load_prompt("QUESTION_SEARCH_REQUIRED_INSTRUCTION.md")
-                    )
-                )
+                session.append(chat.system(self._load_prompt("QUESTION_SEARCH_REQUIRED_INSTRUCTION.md")))
             else:
                 break
 
-        sleep = detect_sleep and "[SLEEP]" in agent_answer.answer
         return AgentResponse(
             content=agent_answer.answer,
             reasoning=agent_answer.reasoning,
-            sleep=sleep,
             tool_history=[],
             citations=agent_answer.citations,
         )

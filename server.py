@@ -12,9 +12,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import uvicorn
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Security
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -41,17 +40,6 @@ logger = logging.getLogger(__name__)
 XAI_API_KEY = os.environ.get("XAI_API_KEY")
 SWITCHBOT_API_TOKEN = os.environ.get("SWITCHBOT_API_TOKEN")
 SWITCHBOT_API_SECRET = os.environ.get("SWITCHBOT_API_SECRET")
-ELIZA_SECRET_KEY = os.environ.get("ELIZA_SECRET_KEY")
-
-_api_key_header = APIKeyHeader(name="X-Secret-Key", auto_error=False)
-
-
-async def _verify_secret(key: str | None = Security(_api_key_header)):
-    if not ELIZA_SECRET_KEY:
-        return
-    if key != ELIZA_SECRET_KEY:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
 
 _AUTO_SUMMARY_INTERVAL_SECONDS = 30 * 60  # 30分
 
@@ -65,9 +53,7 @@ async def _auto_summary_loop():
         await asyncio.sleep(_AUTO_SUMMARY_INTERVAL_SECONDS)
         request_id = f"auto-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         if not eliza.memory.has_recent_messages(minutes=30):
-            logger.info(
-                "[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping."
-            )
+            logger.info("[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping.")
             continue
         logger.info(f"[AUTO SUMMARY] Starting auto summary ({request_id})...")
         await asyncio.to_thread(_generate_summary_in_background, request_id)
@@ -132,7 +118,6 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message]
-    detect_sleep: bool = True
     max_tool_loops: int = 5
     deep: bool = False
     interact: bool = False
@@ -141,7 +126,6 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     message: Message
     reasoning: str | None = None
-    sleep: bool = False
     tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
     citations: list[str] = Field(default_factory=list)
     elapsed_ms: int = 0
@@ -159,7 +143,6 @@ async def get_health():
 @app.post(
     "/eliza/api/chat",
     response_model=ChatResponse,
-    dependencies=[Depends(_verify_secret)],
 )
 async def post_chat(request: ChatRequest) -> ChatResponse:
     """会話履歴を受け取り次の返答を生成する
@@ -183,9 +166,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
     for i, msg in enumerate(request.messages):
         logger.info(f"  Message[{i}]:")
         logger.info(f"    role: {msg.role}")
-        logger.info(
-            f"    content: {msg.content[:200]}{'...' if len(msg.content) > 200 else ''}"
-        )
+        logger.info(f"    content: {msg.content[:200]}{'...' if len(msg.content) > 200 else ''}")
     logger.info("-" * 80)
 
     if not XAI_API_KEY:
@@ -201,12 +182,8 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            logger.info(
-                f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})"
-            )
-            messages_dicts = [
-                {"role": m.role, "content": m.content} for m in request.messages
-            ]
+            logger.info(f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})")
+            messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
 
             # router で意図を分類
             intent_result = await asyncio.to_thread(
@@ -225,7 +202,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
-                    detect_sleep=request.detect_sleep,
                     query_hint=intent_result.query_hint,
                 )
             elif intent_result.label == IntentLabel.Question:
@@ -235,7 +211,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
-                    detect_sleep=request.detect_sleep,
                     query_hint=intent_result.query_hint,
                 )
             elif intent_result.label == IntentLabel.Translator:
@@ -245,7 +220,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
-                    detect_sleep=request.detect_sleep,
                     query_hint=intent_result.query_hint,
                 )
             else:
@@ -259,7 +233,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     messages=messages_dicts,
                     request_id=request_id,
                     max_tool_loops=request.max_tool_loops,
-                    detect_sleep=request.detect_sleep,
                     query_hint=intent_result.query_hint,
                 )
 
@@ -305,7 +278,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
             return ChatResponse(
                 message=response_message,
                 reasoning=result.reasoning,
-                sleep=result.sleep,
                 tool=result.tool_history if result.tool_history else None,
                 citations=result.citations,
                 elapsed_ms=elapsed_ms,
@@ -313,9 +285,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
         except Exception as e:
             last_error = e
-            logger.error(
-                f"[REQUEST ID: {request_id}] Error occurred (attempt {attempt}/{MAX_RETRIES}): {str(e)}"
-            )
+            logger.error(f"[REQUEST ID: {request_id}] Error occurred (attempt {attempt}/{MAX_RETRIES}): {str(e)}")
             if attempt < MAX_RETRIES:
                 logger.info(f"[REQUEST ID: {request_id}] Retrying...")
             else:
@@ -335,9 +305,7 @@ def _generate_summary_in_background(request_id: str):
         )
         logger.info("=" * 80)
     except Exception as e:
-        logger.error(
-            f"[REQUEST ID: {request_id}] Error in summary background task: {str(e)}"
-        )
+        logger.error(f"[REQUEST ID: {request_id}] Error in summary background task: {str(e)}")
         logger.error("=" * 80)
 
 
@@ -345,7 +313,6 @@ def _generate_summary_in_background(request_id: str):
     "/eliza/api/summary",
     status_code=202,
     response_model=SummaryResponse,
-    dependencies=[Depends(_verify_secret)],
 )
 async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
     """メモリ要約をバックグラウンドで生成する
