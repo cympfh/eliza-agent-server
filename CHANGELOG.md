@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-05-28
+
+### Changed
+- QuestionAgent が会話履歴ベースの質問でも検索ツールを強制的に呼ばせようとしていた挙動を修正
+- IntentRouter の Question 分類基準を明確化（web/X 検索だけでなく会話履歴でも回答可能なものは Question へ）
+
+### Removed
+- QuestionAgent 内部の検索未使用検知 + 最大10回リトライループ（_used_search と MAX_LOOP）
+- それに伴う QUESTION_SEARCH_REQUIRED_INSTRUCTION.md（不要になったため削除）
+
+(git commit: 8b27fda)
+
 ## [0.6.0] - 2026-05-27
 
 ### Added
