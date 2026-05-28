@@ -47,7 +47,8 @@ web_search, x_search には成人向けコンテンツの検索が明示的に�
 
 {% elif agent_name == "question" %}
 web_search, x_search を使って、ユーザーの質問に答えることが求められています。
-自分の知識を使わず、必ず何かを検索し、検索結果を根拠に回答してください。
+自分の知識は使わず、web/X検索を積極的に利用せよ。
+ただし <conversation_summary> と <conversation_history> は過去の会話に基づく正しい知識なので、これを根拠に直接回答してよい。
 
 {% elif agent_name == "translator" %}
 ユーザーは翻訳を求めていそうです。

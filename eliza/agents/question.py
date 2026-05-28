@@ -67,22 +67,6 @@ class QuestionAgent:
         path = PROMPT_DIR / filename
         return Template(path.read_text(encoding="utf-8")).render(**kwargs).strip()
 
-    def _used_search(self, response: Any) -> bool:
-        """レスポンスに web_* / x_* のツール呼び出しが含まれているか判定する
-
-        Parameters
-        ----------
-        response
-            session.parse() の第1戻り値
-        """
-        phrases = ["web_", "x_"]
-        if not response.tool_calls:
-            return False
-        for tc in response.tool_calls:
-            if any(tc.function.name.startswith(phrase) for phrase in phrases):
-                return True
-        return False
-
     def run(
         self,
         messages: list[dict[str, str]],
@@ -91,8 +75,8 @@ class QuestionAgent:
     ) -> AgentResponse:
         """会話履歴を受け取り検索ベースで質問に回答する
 
-        サーバーサイドツールを使用する
-        初回応答で検索ツールが未使用の場合は検索促進プロンプトを挟んでリトライする
+        サーバーサイドツール（x_search / web_search / code_execution）を使用する
+        会話履歴のみで答えられる質問もここで扱う（memory context を信頼して直接回答可）
 
         Parameters
         ----------
@@ -135,30 +119,8 @@ class QuestionAgent:
         if query_hint:
             session.append(chat.system(query_hint))
 
-        MAX_LOOP = 10
         logger.info(f"[REQUEST ID: {request_id}] QuestionAgent: generating response...")
-
-        for loop in range(1, MAX_LOOP + 1):
-            response, agent_answer = session.parse(AgentAnswer)
-            # 検索ツールが使われていない場合は検索促進プロンプトを挟んでリトライ
-            if not agent_answer.answer or not self._used_search(response):
-                if loop >= MAX_LOOP:
-                    logger.warning(
-                        f"[REQUEST ID: {request_id}] QuestionAgent: max loop ({MAX_LOOP}) reached. Returning current answer."
-                    )
-                    break
-                logger.info(
-                    f"[REQUEST ID: {request_id}] QuestionAgent: no search tool used. Retrying with search required instruction... (loop {loop}/{MAX_LOOP})"
-                )
-                if agent_answer.answer:
-                    session.append(chat.assistant(agent_answer.answer))
-                if agent_answer.answer or agent_answer.reasoning:
-                    session.append(
-                        chat.assistant(f"前回の回答: {agent_answer.answer}.\n前回の推論: {agent_answer.reasoning}.")
-                    )
-                session.append(chat.system(self._load_prompt("QUESTION_SEARCH_REQUIRED_INSTRUCTION.md")))
-            else:
-                break
+        _, agent_answer = session.parse(AgentAnswer)
 
         return AgentResponse(
             content=agent_answer.answer,

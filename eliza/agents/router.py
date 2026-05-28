@@ -25,7 +25,7 @@ class IntentResult(BaseModel):
         description=(
             "ユーザーの直近の発言の意図。"
             "Trivial: 意味のない会話・挨拶・感謝など。"
-            "Question: Web/X(Twitter)検索だけで答えられる質問。ローカルツール（スキル・スマート家電等）は不要。"
+            "Question: Web/X検索または会話履歴（conversation_summary / conversation_history）で答えられる質問。ローカルツール（スキル・スマート家電等）は不要。"
             "Translator: テキストの翻訳リクエスト（「翻訳して」「訳して」「英語で言うと」など）。"
             "FullOperation: スキル一覧に記載された機能（YouTube動画検索・再生、エアコン操作、ToDo管理など）や PC/スマートホーム操作など外部ツール実行が必要なタスク。Web 検索が追加で必要な場合も含む。"
         )
@@ -63,9 +63,7 @@ class IntentRouter:
             ログ追跡用のリクエスト ID
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(
-            model=MODEL, reasoning_effort=LIGHT_REASONING_EFFORT
-        )
+        session = client.chat.create(model=MODEL, reasoning_effort=LIGHT_REASONING_EFFORT)
 
         skills = eliza.tools.Skill().skills()
         skill_list = "\n".join(f"  - {s.name}: {s.description}" for s in skills)
@@ -75,8 +73,8 @@ class IntentRouter:
                 "あなたはユーザーの発言の意図を分類するアシスタントです。\n"
                 "会話の最後のユーザー発言を以下の4種類に分類してください。\n\n"
                 "- Trivial: 挨拶・雑談・感謝・相槌など意味のない会話\n"
-                "- Question: Web検索やX(Twitter)検索だけで答えられる質問。ローカルツール（スキル・スマート家電等）は一切不要なもの\n"
-                "純粋にインターネット検索だけで解決できるもの（ローカルツール不要）は Question にしてください。\n"
+                "- Question: Web検索・X(Twitter)検索、または会話履歴（conversation_summary / conversation_history）で答えられる質問。ローカルツール（スキル・スマート家電等）は一切不要なもの\n"
+                "web/X検索または会話履歴で回答できそうなものは Question にしてください。\n"
                 "- Translator: テキストの翻訳リクエスト（「翻訳して」「訳して」「英語で言うと」など）\n"
                 f"- FullOperation: 以下のスキル一覧に該当する操作: \n<skill_list>{skill_list}</skill_list>\n"
                 "またはツールの直接利用で解決できるタスク（PC操作、スマートホーム操作、天気取得など）\n"
