@@ -129,6 +129,7 @@ class ChatResponse(BaseModel):
     tool: list[tuple[dict[str, Any], dict[str, Any] | None]] | None = None
     citations: list[str] = Field(default_factory=list)
     elapsed_ms: int = 0
+    agent_name: str | None = None
 
 
 class SummaryResponse(BaseModel):
@@ -281,6 +282,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 tool=result.tool_history if result.tool_history else None,
                 citations=result.citations,
                 elapsed_ms=elapsed_ms,
+                agent_name=result.agent_name or None,
             )
 
         except Exception as e:

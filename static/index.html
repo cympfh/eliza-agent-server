@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eliza</title>
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -138,9 +139,7 @@
     <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-3 bg-zinc-950/80 backdrop-blur-md z-10">
       <div class="flex items-center gap-x-3">
         <div class="flex items-center gap-x-2">
-          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center">
-            <span class="text-zinc-950 font-bold text-xl tracking-tighter">E</span>
-          </div>
+          <img src="/static/logo.png" alt="Eliza" class="w-8 h-8 rounded-xl object-cover"/>
           <div onclick="showSessionModal()" class="cursor-pointer select-none">
             <div class="font-semibold text-xl tracking-tight">Eliza</div>
             <div id="current-session-title" class="text-[10px] text-zinc-500 -mt-1 hover:text-zinc-400 transition-colors flex items-center gap-x-0.5">
@@ -528,6 +527,7 @@
                 <div class="flex items-center justify-between mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500">
                   <div class="flex items-center gap-x-2">
                     ${elapsed ? `<span>${elapsed}ms</span>` : ''}
+                    ${meta.agent_name ? `<span class="opacity-40">${escapeHtml(meta.agent_name)}</span>` : ''}
                   </div>
                   <button onclick="copyMessage(${idx})" 
                           class="opacity-40 hover:opacity-100 transition-opacity flex items-center gap-x-1 text-xs px-2 py-0.5 rounded hover:bg-zinc-800">
@@ -853,7 +853,8 @@
             reasoning: (data.reasoning || '').trim(),
             citations: data.citations || [],
             tool: data.tool || null,
-            elapsed_ms: data.elapsed_ms || 0
+            elapsed_ms: data.elapsed_ms || 0,
+            agent_name: data.agent_name || null
           }
         };
 

@@ -31,6 +31,7 @@ class AgentResponse(BaseModel):
     reasoning: str
     tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]]
     citations: list[str]
+    agent_name: str = ""
 
 
 class TrivialAgent:
@@ -119,4 +120,5 @@ class TrivialAgent:
             reasoning=agent_answer.reasoning,
             tool_history=[],
             citations=agent_answer.citations,
+            agent_name=self.agent_name,
         )
