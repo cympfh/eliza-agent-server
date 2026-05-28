@@ -65,7 +65,9 @@ async def _auto_summary_loop():
         await asyncio.sleep(_AUTO_SUMMARY_INTERVAL_SECONDS)
         request_id = f"auto-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         if not eliza.memory.has_recent_messages(minutes=30):
-            logger.info("[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping.")
+            logger.info(
+                "[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping."
+            )
             continue
         logger.info(f"[AUTO SUMMARY] Starting auto summary ({request_id})...")
         await asyncio.to_thread(_generate_summary_in_background, request_id)
@@ -107,6 +109,7 @@ app = FastAPI(
 # シンプルなブラウザUI（GET /）
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.get("/", include_in_schema=False)
 async def get_root():
     """ブラウザ向けシンプルチャットUIを返す"""
@@ -129,7 +132,6 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message]
-    use_memory: bool = True
     detect_sleep: bool = True
     max_tool_loops: int = 5
     deep: bool = False
@@ -154,7 +156,11 @@ async def get_health():
     return {"status": "ok"}
 
 
-@app.post("/eliza/api/chat", response_model=ChatResponse, dependencies=[Depends(_verify_secret)])
+@app.post(
+    "/eliza/api/chat",
+    response_model=ChatResponse,
+    dependencies=[Depends(_verify_secret)],
+)
 async def post_chat(request: ChatRequest) -> ChatResponse:
     """会話履歴を受け取り次の返答を生成する
 
@@ -216,7 +222,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 result = await asyncio.to_thread(
                     TrivialAgent(
                         api_key=XAI_API_KEY,
-                        use_memory=request.use_memory,
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
@@ -227,7 +232,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 result = await asyncio.to_thread(
                     QuestionAgent(
                         api_key=XAI_API_KEY,
-                        use_memory=request.use_memory,
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
@@ -238,7 +242,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 result = await asyncio.to_thread(
                     TranslatorAgent(
                         api_key=XAI_API_KEY,
-                        use_memory=request.use_memory,
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
@@ -250,7 +253,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 result = await asyncio.to_thread(
                     FullOperationAgent(
                         api_key=XAI_API_KEY,
-                        use_memory=request.use_memory,
                         deep=request.deep,
                         interact=request.interact,
                     ).run,
@@ -339,7 +341,12 @@ def _generate_summary_in_background(request_id: str):
         logger.error("=" * 80)
 
 
-@app.post("/eliza/api/summary", status_code=202, response_model=SummaryResponse, dependencies=[Depends(_verify_secret)])
+@app.post(
+    "/eliza/api/summary",
+    status_code=202,
+    response_model=SummaryResponse,
+    dependencies=[Depends(_verify_secret)],
+)
 async def post_summary(background_tasks: BackgroundTasks) -> SummaryResponse:
     """メモリ要約をバックグラウンドで生成する
 

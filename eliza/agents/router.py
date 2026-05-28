@@ -4,6 +4,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 from xai_sdk import Client, chat
 
+import eliza.memory
 import eliza.tools
 from eliza.models import LIGHT_REASONING_EFFORT, MODEL
 
@@ -62,7 +63,9 @@ class IntentRouter:
             ログ追跡用のリクエスト ID
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(model=MODEL, reasoning_effort=LIGHT_REASONING_EFFORT)
+        session = client.chat.create(
+            model=MODEL, reasoning_effort=LIGHT_REASONING_EFFORT
+        )
 
         skills = eliza.tools.Skill().skills()
         skill_list = "\n".join(f"  - {s.name}: {s.description}" for s in skills)
@@ -80,6 +83,12 @@ class IntentRouter:
                 "Question 同様に Web 検索、X検索を利用することもできます。"
             )
         )
+
+        # 直近の会話履歴（常に挿入）
+        memory_block = eliza.memory.get_memory_context_block()
+        if memory_block:
+            session.append(chat.system(memory_block))
+
         for msg in messages:
             if msg["role"] == "system":
                 session.append(chat.system(msg["content"]))

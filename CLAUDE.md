@@ -43,7 +43,7 @@ server.py           # FastAPI エントリポイント
 | ファイル | 用途 |
 |---|---|
 | `ELIZA.md` | system prompt (エージェントのキャラクター・基本指示) |
-| `MEMORY_INSTRUCTION.md` | 会話要約をどう使うかの指示 |
+| `MEMORY_INSTRUCTION.md` | 直近履歴＋summary を常に system として注入する指示（全リクエストで無条件） |
 | `SKILL_INSTRUCTION.md` | スキル一覧の提示方法 |
 | `SKILL_FETCHED_INSTRUCTION.md` | skill_use 直後に「まだ実行していない」と釘を刺す |
 | `TOOL_LOOP_INSTRUCTION.md` | ツールループ継続・終了の判断指示 |

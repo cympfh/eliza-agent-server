@@ -45,7 +45,6 @@ class FullOperationAgent:
     def __init__(
         self,
         api_key: str,
-        use_memory: bool = True,
         deep: bool = False,
         interact: bool = False,
     ):
@@ -55,8 +54,6 @@ class FullOperationAgent:
         ----------
         api_key
             xAI API キー
-        use_memory
-            True のとき memory summary をプロンプトに差し込む
         deep
             True のとき deep_research スキルを有効にする
         interact
@@ -65,7 +62,6 @@ class FullOperationAgent:
         self.api_key = api_key
         self.model = MODEL
         self.reasoning_effort = HEAVY_REASONING_EFFORT
-        self.use_memory = use_memory
         self.deep = deep
         self.interact = interact
 
@@ -99,28 +95,14 @@ class FullOperationAgent:
             chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
         )
 
-    def _inject_memory_summary(self, session: Any, request_id: str) -> None:
-        """memory summary と直近の会話履歴を system メッセージとして差し込む"""
-        if not self.use_memory:
-            return
-        summary = eliza.memory.get()
-        recent_messages = eliza.memory.get_recent_messages(6)
-        if summary or recent_messages:
+    def _inject_memory_context(self, session: Any, request_id: str) -> None:
+        """直近の会話履歴（+ summary）を system メッセージとして差し込む（常に実行）"""
+        memory_block = eliza.memory.get_memory_context_block()
+        if memory_block:
             logger.info(
-                f"[REQUEST ID: {request_id}] Injecting memory summary as system message..."
+                f"[REQUEST ID: {request_id}] Injecting memory context as system message..."
             )
-            summary_str = (
-                json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
-            )
-            session.append(
-                chat.system(
-                    self._load_prompt(
-                        "MEMORY_INSTRUCTION.md",
-                        summary_str=summary_str,
-                        recent_messages=recent_messages,
-                    )
-                )
-            )
+            session.append(chat.system(memory_block))
 
     def _inject_sleep_instruction(self, session: Any, request_id: str) -> None:
         """sleep 検出のためのシステムメッセージを差し込む"""
@@ -193,12 +175,15 @@ class FullOperationAgent:
         logger.info(
             f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
         )
-        session = client.chat.create(model=self.model, tools=available_tools, reasoning_effort=self.reasoning_effort)
+        session = client.chat.create(
+            model=self.model,
+            tools=available_tools,
+            reasoning_effort=self.reasoning_effort,
+        )
 
         # プロンプト・会話履歴を順番に差し込む
         logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")
         self._inject_eliza_prompt(session, request_id)
-        self._inject_memory_summary(session, request_id)
 
         for msg in messages:
             if msg["role"] == "system":
@@ -207,6 +192,9 @@ class FullOperationAgent:
                 session.append(chat.user(msg["content"]))
             elif msg["role"] == "assistant":
                 session.append(chat.assistant(msg["content"]))
+
+        # 直近履歴は client messages の後に挿入（recency を高める）
+        self._inject_memory_context(session, request_id)
 
         if query_hint:
             session.append(chat.system(query_hint))

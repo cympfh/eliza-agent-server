@@ -44,7 +44,6 @@ class TrivialAgent:
     def __init__(
         self,
         api_key: str,
-        use_memory: bool = True,
     ):
         """雑談・挨拶など意味のない会話に応答するエージェントを初期化する
 
@@ -54,13 +53,10 @@ class TrivialAgent:
         ----------
         api_key
             xAI API キー
-        use_memory
-            True のとき memory summary をプロンプトに差し込む
         """
         self.api_key = api_key
         self.model = MODEL
         self.reasoning_effort = LIGHT_REASONING_EFFORT
-        self.use_memory = use_memory
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
         """プロンプトを読んで返す
@@ -96,7 +92,9 @@ class TrivialAgent:
             IntentRouter から渡されるクエリヒント
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(model=self.model, reasoning_effort=self.reasoning_effort)
+        session = client.chat.create(
+            model=self.model, reasoning_effort=self.reasoning_effort
+        )
 
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
@@ -109,24 +107,6 @@ class TrivialAgent:
             chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
         )
 
-        # memory summary 差し込み
-        if self.use_memory:
-            summary = eliza.memory.get()
-            recent_messages = eliza.memory.get_recent_messages(6)
-            if summary or recent_messages:
-                summary_str = (
-                    json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
-                )
-                session.append(
-                    chat.system(
-                        self._load_prompt(
-                            "MEMORY_INSTRUCTION.md",
-                            summary_str=summary_str,
-                            recent_messages=recent_messages,
-                        )
-                    )
-                )
-
         for msg in messages:
             if msg["role"] == "system":
                 session.append(chat.system(msg["content"]))
@@ -134,6 +114,11 @@ class TrivialAgent:
                 session.append(chat.user(msg["content"]))
             elif msg["role"] == "assistant":
                 session.append(chat.assistant(msg["content"]))
+
+        # 直近履歴は client messages の後に挿入（常に実行）
+        memory_block = eliza.memory.get_memory_context_block()
+        if memory_block:
+            session.append(chat.system(memory_block))
 
         if query_hint:
             session.append(chat.system(query_hint))

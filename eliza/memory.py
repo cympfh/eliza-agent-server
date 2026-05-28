@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from jinja2 import Template
 from xai_sdk import Client, chat
 
 from eliza.models import MODEL, SUMMARY_REASONING_EFFORT
@@ -20,6 +21,9 @@ ALL_SUMMARY_FILE = SUMMARY_DIR / "all.json"
 JST = ZoneInfo("Asia/Tokyo")
 
 XAI_API_KEY = os.environ.get("XAI_API_KEY")
+
+PROMPT_DIR = Path(__file__).parent / "prompt"
+RECENT_HISTORY_LIMIT = 6
 
 
 def _call_grok(
@@ -90,7 +94,13 @@ def save_messages(messages: list[dict]) -> None:
         conn.executemany(
             "INSERT OR IGNORE INTO messages (message_id, timestamp, role, content, reasoning) VALUES (?, ?, ?, ?, ?)",
             [
-                (m["message_id"], m["timestamp"], m["role"], m["content"], m.get("reasoning"))
+                (
+                    m["message_id"],
+                    m["timestamp"],
+                    m["role"],
+                    m["content"],
+                    m.get("reasoning"),
+                )
                 for m in messages
             ],
         )
@@ -186,7 +196,9 @@ def has_recent_messages(minutes: int = 30) -> bool:
     return row is not None
 
 
-def generate_summary(model: str = MODEL, reasoning_effort: str = SUMMARY_REASONING_EFFORT) -> dict:
+def generate_summary(
+    model: str = MODEL, reasoning_effort: str = SUMMARY_REASONING_EFFORT
+) -> dict:
     """SQLite の全メッセージから日別・全期間の summary を生成して返す
 
     日付ごとにグループ化して各日の summary を生成しキャッシュする
@@ -264,7 +276,9 @@ def generate_summary(model: str = MODEL, reasoning_effort: str = SUMMARY_REASONI
             '"tendencies": ["夜型", "最新情報を求める傾向がある"], '
             '"personal_notes": ["一人暮らし", "猫アレルギー"]}}'
         )
-        raw = _call_grok(system_prompt, messages_text, model=model, reasoning_effort=reasoning_effort)
+        raw = _call_grok(
+            system_prompt, messages_text, model=model, reasoning_effort=reasoning_effort
+        )
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
@@ -331,7 +345,9 @@ def generate_summary(model: str = MODEL, reasoning_effort: str = SUMMARY_REASONI
         '"tendencies": ["夜型", "最新情報を求める傾向がある"], '
         '"personal_notes": ["一人暮らし", "猫アレルギー"]}}'
     )
-    raw_all = _call_grok(system_prompt_all, all_text, model=model, reasoning_effort=reasoning_effort)
+    raw_all = _call_grok(
+        system_prompt_all, all_text, model=model, reasoning_effort=reasoning_effort
+    )
     try:
         parsed_all = json.loads(raw_all)
     except json.JSONDecodeError:
@@ -372,3 +388,24 @@ def generate_summary(model: str = MODEL, reasoning_effort: str = SUMMARY_REASONI
     )
 
     return all_data
+
+
+def get_memory_context_block() -> str:
+    """summary + 直近会話履歴を1つの system ブロック文字列として返す
+
+    use_memory フラグは廃止。常に（router を含む全リクエストで）使う。
+    """
+    summary = get()
+    recent_messages = get_recent_messages(RECENT_HISTORY_LIMIT)
+
+    if not summary and not recent_messages:
+        return ""
+
+    summary_str = json.dumps(summary, ensure_ascii=False, indent=2) if summary else ""
+
+    path = PROMPT_DIR / "MEMORY_INSTRUCTION.md"
+    template = Template(path.read_text(encoding="utf-8"))
+    return template.render(
+        summary_str=summary_str,
+        recent_messages=recent_messages,
+    ).strip()
