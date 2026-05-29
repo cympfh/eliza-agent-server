@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-05-28
+
+### Added
+- `ChatResponse` に `agent_name` フィールドを追加し、応答したエージェント名を返すように
+- `index.html` のメッセージフッターに agent_name を薄く表示
+
+### Changed
+- IntentRouter: 室内温湿度の質問は必ず FullOperation に分類する制約を追加
+- ELIZA.md (full_operation): 室内温湿度は `switchbot_get_room_temperature` を必ず呼ぶよう明記、外気温・tenki からの推定を禁止
+
+(git commit: 5a26e03)
+
 ## [0.6.1] - 2026-05-28
 
 ### Changed
