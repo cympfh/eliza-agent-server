@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-30
+
+### Added
+- セッションのサーバーサイド永続化 (`sessions.sqlite`) と CRUD API (`GET/PUT/DELETE /eliza/api/sessions`)
+- UI: セッション一覧にクラウド同期アイコンを追加（syncSessionToServer / fetchServerSessions）
+- UI: 最後の assistant メッセージに「再生成」ボタンを追加（retryMessage）
+
+(git commit: 8ca0dcc)
+
 ## [0.6.2] - 2026-05-28
 
 ### Added
