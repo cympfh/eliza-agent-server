@@ -237,7 +237,7 @@
         <!-- JS populated -->
       </div>
       <div class="px-4 py-2.5 border-t border-zinc-800 text-[10px] text-zinc-500 flex justify-between items-center">
-        <div>localStorage に保存（このブラウザのみ）</div>
+        <div>☁ アイコンでクラウド同期</div>
         <button onclick="hideSessionModal()" class="text-xs px-2 py-0.5 hover:bg-zinc-800 rounded transition-colors">閉じる</button>
       </div>
     </div>
@@ -308,6 +308,8 @@
 
         // 古い welcome-only セッションを掃除（ユーザー発言があるものだけ残す）
         sessions = sessions.filter(s => (s.messages || []).some(m => m.role === 'user'));
+        // _serverOnly フラグはモーダル open 時に動的に付与するため、永続化しない
+        sessions.forEach(s => { delete s._serverOnly; });
 
         currentSessionId = localStorage.getItem(CURRENT_KEY);
 
@@ -334,6 +336,55 @@
         localStorage.setItem(CURRENT_KEY, currentSessionId);
         messages = [];
       }
+    }
+
+    // Cloud sync helpers
+    async function syncSessionToServer(sess) {
+      try {
+        const res = await fetch(`/eliza/api/sessions/${sess.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: sess.id,
+            title: sess.title || '',
+            messages: sess.messages || [],
+            created_at: sess.created_at,
+            updated_at: sess.updated_at
+          })
+        });
+        if (!res.ok) return;
+        sess.synced = true;
+        saveSessions();
+      } catch (e) {}
+    }
+
+    async function deleteSessionFromServer(id) {
+      try {
+        await fetch(`/eliza/api/sessions/${id}`, { method: 'DELETE' });
+      } catch (e) {}
+    }
+
+    // セッション一覧モーダルを開く際にサーバーから取得してマージする
+    async function fetchServerSessions() {
+      try {
+        const res = await fetch('/eliza/api/sessions');
+        if (!res.ok) return;
+        const serverSessions = await res.json();
+        let changed = false;
+        for (const ss of serverSessions) {
+          const local = sessions.find(s => s.id === ss.id);
+          if (!local) {
+            // サーバーにしかない → 仮エントリとして追加（synced=true, _serverOnly=true）
+            sessions.push({ ...ss, synced: true, _serverOnly: true });
+            changed = true;
+          }
+        }
+        if (changed) {
+          // updated_at 降順に再ソート
+          sessions.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
+          saveSessions();
+        }
+      } catch (e) {}
     }
 
     function createNewSession(doSave = true) {
@@ -370,17 +421,27 @@
     }
 
     function deleteSession(id) {
-      if (sessions.length <= 1) {
+      const realSessions = sessions.filter(s => (s.messages || []).some(m => m.role === 'user') && !s._serverOnly);
+      if (realSessions.length <= 1 && realSessions.some(s => s.id === id)) {
         alert('最後のセッションは削除できません');
         return false;
       }
       const idx = sessions.findIndex(s => s.id === id);
       if (idx < 0) return false;
+      const sess = sessions[idx];
       const wasCurrent = (id === currentSessionId);
+      if (sess.synced) deleteSessionFromServer(id);
       sessions.splice(idx, 1);
       if (wasCurrent) {
-        currentSessionId = sessions[0].id;
-        messages = sessions[0].messages || [];
+        const next = sessions.find(s => !s._serverOnly && (s.messages || []).some(m => m.role === 'user'));
+        if (next) {
+          currentSessionId = next.id;
+          messages = next.messages || [];
+        } else {
+          currentSessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('s_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+          messages = [];
+          localStorage.setItem(CURRENT_KEY, currentSessionId);
+        }
       }
       saveSessions();
       if (wasCurrent) {
@@ -529,13 +590,23 @@
                     ${elapsed ? `<span>${elapsed}ms</span>` : ''}
                     ${meta.agent_name ? `<span class="opacity-40">${escapeHtml(meta.agent_name)}</span>` : ''}
                   </div>
-                  <button onclick="copyMessage(${idx})" 
-                          class="opacity-40 hover:opacity-100 transition-opacity flex items-center gap-x-1 text-xs px-2 py-0.5 rounded hover:bg-zinc-800">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M8 16v-4m4 4v4m4-8v8m4-4v-4m-16 4h.01M12 4v.01" />
-                    </svg>
-                    <span>コピー</span>
-                  </button>
+                  <div class="flex items-center gap-x-1">
+                    ${idx === messages.length - 1 ? `
+                    <button onclick="retryMessage()"
+                            class="opacity-40 hover:opacity-100 transition-opacity flex items-center gap-x-1 text-xs px-2 py-0.5 rounded hover:bg-zinc-800">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>再生成</span>
+                    </button>` : ''}
+                    <button onclick="copyMessage(${idx})"
+                            class="opacity-40 hover:opacity-100 transition-opacity flex items-center gap-x-1 text-xs px-2 py-0.5 rounded hover:bg-zinc-800">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M8 16v-4m4 4v4m4-8v8m4-4v-4m-16 4h.01M12 4v.01" />
+                      </svg>
+                      <span>コピー</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -622,15 +693,22 @@
       `;
     }
 
-    function showSessionModal() {
-      const modal = document.getElementById('session-modal');
+    const CLOUD_ICON_SYNCED = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+    </svg>`;
+    const CLOUD_ICON_UNSYNCED = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+      <line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="2"/>
+    </svg>`;
+
+    function renderSessionList() {
       const list = document.getElementById('session-list');
       list.innerHTML = '';
 
-      // 実会話があるセッションのみ表示（ユーザー発言前は保存されていない）
-      const displaySessions = sessions.filter(s => (s.messages || []).some(m => m.role === 'user'));
+      const displaySessions = sessions.filter(s => (s.messages || []).some(m => m.role === 'user') || s._serverOnly);
       displaySessions.forEach(sess => {
         const isCurrent = sess.id === currentSessionId;
+        const isServerOnly = !!sess._serverOnly;
         const row = document.createElement('div');
         row.className = `px-4 py-2.5 flex items-center gap-x-3 hover:bg-zinc-800/60 cursor-pointer ${isCurrent ? 'bg-zinc-800/40' : ''}`;
 
@@ -640,45 +718,86 @@
                         d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
         const count = (sess.messages || []).length;
 
+        const cloudColor = sess.synced ? 'text-cyan-400' : 'text-zinc-600';
+        const cloudIcon = sess.synced ? CLOUD_ICON_SYNCED : CLOUD_ICON_UNSYNCED;
+        const cloudTitle = sess.synced ? '同期済み（クリックで解除）' : 'クラウド同期（クリックで同期）';
+
         row.innerHTML = `
           <div class="flex-1 min-w-0">
-            <div class="font-medium text-[14px] truncate ${isCurrent ? 'text-cyan-300' : 'text-zinc-200'}">${escapeHtml(sess.title || '無題')}</div>
-            <div class="text-[10px] text-zinc-500 mt-0.5">${dateStr} · ${count} メッセージ</div>
+            <div class="font-medium text-[14px] truncate ${isCurrent ? 'text-cyan-300' : isServerOnly ? 'text-zinc-400 italic' : 'text-zinc-200'}">${escapeHtml(sess.title || '無題')}</div>
+            <div class="text-[10px] text-zinc-500 mt-0.5">${dateStr} · ${count} メッセージ${isServerOnly ? ' · サーバーのみ' : ''}</div>
           </div>
           <div class="flex items-center gap-x-1 flex-shrink-0">
             ${isCurrent ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400">現在</span>' : ''}
-            <button class="p-1.5 text-zinc-500 hover:text-red-400 rounded hover:bg-zinc-950" title="削除">
+            <button class="cloud-btn p-1.5 ${cloudColor} hover:text-cyan-300 rounded hover:bg-zinc-950" title="${cloudTitle}">
+              ${cloudIcon}
+            </button>
+            ${!isServerOnly ? `<button class="del-btn p-1.5 text-zinc-500 hover:text-red-400 rounded hover:bg-zinc-950" title="削除">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.595 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.595-1.858L5 7m5 4v6m4-6v6m1-10V9a1 1 0 00-1-1h-4a1 1 0 00-1 1v2M7 7h10" />
               </svg>
-            </button>
+            </button>` : ''}
           </div>
         `;
 
-        // click to switch (except delete button)
-        row.onclick = (ev) => {
+        row.onclick = async (ev) => {
           if (ev.target.closest('button')) return;
-          hideSessionModal();
-          if (!isCurrent) switchToSession(sess.id);
-        };
-
-        // delete button
-        const delBtn = row.querySelector('button');
-        delBtn.onclick = (ev) => {
-          ev.stopImmediatePropagation();
-          if (!confirm('このセッションを完全に削除しますか？')) return;
-          const ok = deleteSession(sess.id);
-          if (ok) {
-            // refresh modal list
-            showSessionModal();
+          if (isServerOnly) {
+            // サーバーからダウンロードして localに追加
+            sess._serverOnly = false;
+            saveSessions();
+            hideSessionModal();
+            switchToSession(sess.id);
+          } else {
+            hideSessionModal();
+            if (!isCurrent) switchToSession(sess.id);
           }
         };
 
+        // cloud toggle button
+        const cloudBtn = row.querySelector('.cloud-btn');
+        cloudBtn.onclick = async (ev) => {
+          ev.stopImmediatePropagation();
+          if (isServerOnly) {
+            // ダウンロード
+            sess._serverOnly = false;
+            saveSessions();
+            renderSessionList();
+          } else if (sess.synced) {
+            // 同期解除（サーバーからは削除しない）
+            sess.synced = false;
+            saveSessions();
+            renderSessionList();
+          } else {
+            // 初回同期（upload）
+            await syncSessionToServer(sess);
+            renderSessionList();
+          }
+        };
+
+        // delete button
+        const delBtn = row.querySelector('.del-btn');
+        if (delBtn) {
+          delBtn.onclick = (ev) => {
+            ev.stopImmediatePropagation();
+            if (!confirm('このセッションを完全に削除しますか？')) return;
+            const ok = deleteSession(sess.id);
+            if (ok) renderSessionList();
+          };
+        }
+
         list.appendChild(row);
       });
+    }
 
+    async function showSessionModal() {
+      const modal = document.getElementById('session-modal');
+      renderSessionList();
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+      // バックグラウンドでサーバーセッションを取得してリストを更新
+      await fetchServerSessions();
+      renderSessionList();
     }
 
     function hideSessionModal() {
@@ -759,44 +878,10 @@
       });
     }
 
-    // Send message
-    async function sendMessage() {
-      const input = document.getElementById('input');
-      const text = input.value.trim();
-      if (!text) return;
-
-      // Add user message
-      const userMsg = { role: 'user', content: text };
-      messages.push(userMsg);
-
-      // ユーザー発言が初めて入った瞬間にのみセッションを永続化開始
-      // （それまでは sessions 配列に保存しない）
-      if (!sessions.some(s => s.id === currentSessionId)) {
-        const now = Date.now();
-        const title = generateTitle(messages);
-        const newSess = {
-          id: currentSessionId,
-          title: title,
-          created_at: now,
-          updated_at: now,
-          messages: JSON.parse(JSON.stringify(messages))
-        };
-        sessions.unshift(newSess);
-        saveSessions();
-      } else {
-        saveCurrentSession();
-      }
-      renderMessages();
-
-      // 入力欄を空にする
-      input.value = '';
-      input.style.height = 'auto';
-
-      // Prepare request
+    async function doChat() {
       const deep = document.getElementById('deep-toggle').checked;
       const interact = document.getElementById('interact-toggle').checked;
 
-      // Send only role+content (backend only needs these)
       const payloadMessages = messages
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content }));
@@ -808,7 +893,6 @@
         interact: interact
       };
 
-      // Show temporary thinking indicator
       const container = document.getElementById('chat');
       const thinking = document.createElement('div');
       thinking.id = 'thinking';
@@ -842,10 +926,8 @@
 
         const data = await res.json();
 
-        // Remove thinking
         thinking.remove();
 
-        // Build assistant message with rich meta
         const assistantMsg = {
           role: 'assistant',
           content: (data.message?.content || '(応答なし)').trim(),
@@ -863,9 +945,12 @@
         renderMessages();
         updateHeaderSessionInfo();
 
+        const curSess = sessions.find(s => s.id === currentSessionId);
+        if (curSess && curSess.synced) syncSessionToServer(curSess);
+
       } catch (err) {
         thinking.remove();
-        
+
         const errorMsg = {
           role: 'assistant',
           content: `エラーが発生しました: ${err.message}`,
@@ -876,6 +961,57 @@
         renderMessages();
         updateHeaderSessionInfo();
       }
+    }
+
+    function retryMessage() {
+      // 最後の assistant メッセージを削除
+      if (messages.length === 0 || messages[messages.length - 1].role !== 'assistant') return;
+      messages.pop();
+
+      // 直前の user メッセージも削除して input に戻す
+      if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
+        const lastUser = messages.pop();
+        const input = document.getElementById('input');
+        input.value = lastUser.content;
+        input.style.height = 'auto';
+        input.style.height = input.scrollHeight + 'px';
+        input.focus();
+      }
+
+      saveCurrentSession();
+      renderMessages();
+    }
+
+    // Send message
+    async function sendMessage() {
+      const input = document.getElementById('input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const userMsg = { role: 'user', content: text };
+      messages.push(userMsg);
+
+      if (!sessions.some(s => s.id === currentSessionId)) {
+        const now = Date.now();
+        const title = generateTitle(messages);
+        const newSess = {
+          id: currentSessionId,
+          title: title,
+          created_at: now,
+          updated_at: now,
+          messages: JSON.parse(JSON.stringify(messages))
+        };
+        sessions.unshift(newSess);
+        saveSessions();
+      } else {
+        saveCurrentSession();
+      }
+      renderMessages();
+
+      input.value = '';
+      input.style.height = 'auto';
+
+      await doChat();
     }
 
     function handleKeyDown(e) {

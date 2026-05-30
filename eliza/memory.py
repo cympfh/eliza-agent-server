@@ -16,6 +16,7 @@ from eliza.models import MODEL, SUMMARY_REASONING_EFFORT
 
 MEMORY_DIR = Path(".memory")
 MESSAGES_DB = MEMORY_DIR / "messages.sqlite"
+SESSIONS_DB = MEMORY_DIR / "sessions.sqlite"
 SUMMARY_DIR = MEMORY_DIR / "summary"
 ALL_SUMMARY_FILE = SUMMARY_DIR / "all.json"
 JST = ZoneInfo("Asia/Tokyo")
@@ -388,6 +389,88 @@ def generate_summary(
     )
 
     return all_data
+
+
+def _init_sessions_db() -> None:
+    """sessions SQLite DB を初期化する"""
+    MEMORY_DIR.mkdir(exist_ok=True)
+    with sqlite3.connect(SESSIONS_DB) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                id         TEXT PRIMARY KEY,
+                title      TEXT,
+                messages   TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """
+        )
+        conn.commit()
+
+
+def upsert_session(session: dict) -> None:
+    """セッションを upsert する
+
+    Parameters
+    ----------
+    session
+        {id, title, messages, created_at, updated_at} の dict
+    """
+    _init_sessions_db()
+    with sqlite3.connect(SESSIONS_DB) as conn:
+        conn.execute(
+            """
+            INSERT INTO sessions (id, title, messages, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                title      = excluded.title,
+                messages   = excluded.messages,
+                updated_at = excluded.updated_at
+            """,
+            (
+                session["id"],
+                session.get("title", ""),
+                json.dumps(session.get("messages", []), ensure_ascii=False),
+                session["created_at"],
+                session["updated_at"],
+            ),
+        )
+        conn.commit()
+
+
+def delete_session(session_id: str) -> None:
+    """セッションを削除する
+
+    Parameters
+    ----------
+    session_id
+        削除するセッションの ID
+    """
+    _init_sessions_db()
+    with sqlite3.connect(SESSIONS_DB) as conn:
+        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+
+
+def list_sessions() -> list[dict]:
+    """全セッションを updated_at 降順で返す"""
+    _init_sessions_db()
+    with sqlite3.connect(SESSIONS_DB) as conn:
+        rows = conn.execute(
+            "SELECT id, title, messages, created_at, updated_at FROM sessions ORDER BY updated_at DESC"
+        ).fetchall()
+    return [
+        {
+            "id": r[0],
+            "title": r[1],
+            "messages": json.loads(r[2]),
+            "created_at": r[3],
+            "updated_at": r[4],
+            "synced": True,
+        }
+        for r in rows
+    ]
 
 
 def get_memory_context_block() -> str:

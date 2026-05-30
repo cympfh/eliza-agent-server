@@ -136,6 +136,14 @@ class SummaryResponse(BaseModel):
     status: str
 
 
+class SessionPayload(BaseModel):
+    id: str
+    title: str = ""
+    messages: list[Any] = Field(default_factory=list)
+    created_at: int
+    updated_at: int
+
+
 @app.get("/eliza/api/health")
 async def get_health():
     return {"status": "ok"}
@@ -294,6 +302,40 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 logger.error("=" * 80)
 
     raise HTTPException(status_code=500, detail=f"Error: {str(last_error)}")
+
+
+@app.get("/eliza/api/sessions", response_model=list[SessionPayload])
+async def get_sessions():
+    """同期済みセッション一覧を返す"""
+    return eliza.memory.list_sessions()
+
+
+@app.put("/eliza/api/sessions/{session_id}", status_code=204)
+async def put_session(session_id: str, payload: SessionPayload):
+    """セッションを upsert する
+
+    Parameters
+    ----------
+    session_id
+        セッション ID (パスパラメータ)
+    payload
+        セッションデータ
+    """
+    if session_id != payload.id:
+        raise HTTPException(status_code=400, detail="session_id mismatch")
+    eliza.memory.upsert_session(payload.model_dump())
+
+
+@app.delete("/eliza/api/sessions/{session_id}", status_code=204)
+async def delete_session(session_id: str):
+    """セッションを削除する
+
+    Parameters
+    ----------
+    session_id
+        削除するセッション ID
+    """
+    eliza.memory.delete_session(session_id)
 
 
 def _generate_summary_in_background(request_id: str):
