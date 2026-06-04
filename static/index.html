@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eliza</title>
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <meta name="theme-color" content="#22d3ee"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Eliza"/>
+  <link rel="apple-touch-icon" href="/static/logo-192.png"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -1060,6 +1066,11 @@
       chat.addEventListener('click', () => {
         document.getElementById('input').focus();
       });
+    }
+
+    // PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
     }
 
     // Start

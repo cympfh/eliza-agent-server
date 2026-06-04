@@ -102,6 +102,12 @@ async def get_root():
     return FileResponse("static/index.html")
 
 
+@app.get("/sw.js", include_in_schema=False)
+async def get_sw():
+    """PWA Service Worker をルートスコープで提供する"""
+    return FileResponse("static/sw.js", media_type="application/javascript")
+
+
 def _generate_message_id() -> str:
     """現在時刻と乱数から16文字のhex message_id を生成する"""
     raw = f"{datetime.now(JST).isoformat()}-{os.urandom(8).hex()}"
