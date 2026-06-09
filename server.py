@@ -178,6 +178,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
     logger.info(f"[REQUEST ID: {request_id}] POST /chat")
     logger.info("-" * 80)
     logger.info(f"[REQUEST] Number of messages: {len(request.messages)}")
+    logger.info(f"[REQUEST] context: {request.context}")
     logger.info("[REQUEST] Body:")
     for i, msg in enumerate(request.messages):
         logger.info(f"  Message[{i}]:")
