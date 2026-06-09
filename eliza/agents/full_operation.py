@@ -76,11 +76,11 @@ class FullOperationAgent:
         path = PROMPT_DIR / filename
         return Template(path.read_text(encoding="utf-8")).render(**kwargs).strip()
 
-    def _inject_eliza_prompt(self, session: Any, request_id: str) -> None:
+    def _inject_eliza_prompt(self, session: Any, request_id: str, context: str = "vrchat") -> None:
         """ELIZA.md の内容と現在時刻を system prompt として先頭に差し込む"""
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name)
+            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name, context=context)
             if prompt:
                 logger.info(f"[REQUEST ID: {request_id}] Injecting ELIZA.md as system prompt...")
                 session.append(chat.system(prompt))
@@ -127,6 +127,7 @@ class FullOperationAgent:
         request_id: str,
         max_tool_loops: int = 5,
         query_hint: str = "",
+        context: str = "vrchat",
     ) -> AgentResponse:
         """会話履歴を受け取りエージェントの応答を生成する
 
@@ -140,6 +141,8 @@ class FullOperationAgent:
             tool calling ループの最大回数
         query_hint
             IntentRouter から渡されるクエリヒント
+        context
+            会話の発生源 (vrchat / web / cli)
         """
         client = Client(api_key=self.api_key)
 
@@ -153,7 +156,7 @@ class FullOperationAgent:
 
         # プロンプト・会話履歴を順番に差し込む
         logger.info(f"[REQUEST ID: {request_id}] Appending conversation history...")
-        self._inject_eliza_prompt(session, request_id)
+        self._inject_eliza_prompt(session, request_id, context=context)
 
         for msg in messages:
             if msg["role"] == "system":

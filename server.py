@@ -8,7 +8,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import uvicorn
@@ -127,6 +127,7 @@ class ChatRequest(BaseModel):
     max_tool_loops: int = 5
     deep: bool = False
     interact: bool = False
+    context: Literal["vrchat", "web", "cli"] = "vrchat"
 
 
 class ChatResponse(BaseModel):
@@ -218,6 +219,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     messages=messages_dicts,
                     request_id=request_id,
                     query_hint=intent_result.query_hint,
+                    context=request.context,
                 )
             elif intent_result.label == IntentLabel.Question:
                 result = await asyncio.to_thread(
@@ -227,6 +229,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     messages=messages_dicts,
                     request_id=request_id,
                     query_hint=intent_result.query_hint,
+                    context=request.context,
                 )
             elif intent_result.label == IntentLabel.Translator:
                 result = await asyncio.to_thread(
@@ -236,6 +239,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     messages=messages_dicts,
                     request_id=request_id,
                     query_hint=intent_result.query_hint,
+                    context=request.context,
                 )
             else:
                 # FullOperation (default)
@@ -249,6 +253,7 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     request_id=request_id,
                     max_tool_loops=request.max_tool_loops,
                     query_hint=intent_result.query_hint,
+                    context=request.context,
                 )
 
             elapsed_ms = int((time.monotonic() - request_start) * 1000)

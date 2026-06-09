@@ -72,6 +72,7 @@ class TrivialAgent:
         messages: list[dict[str, str]],
         request_id: str,
         query_hint: str = "",
+        context: str = "vrchat",
     ) -> AgentResponse:
         """会話履歴を受け取り雑談応答を生成する
 
@@ -83,6 +84,8 @@ class TrivialAgent:
             ログ追跡用のリクエスト ID
         query_hint
             IntentRouter から渡されるクエリヒント
+        context
+            会話の発生源 (vrchat / web / cli)
         """
         client = Client(api_key=self.api_key)
         session = client.chat.create(model=self.model, reasoning_effort=self.reasoning_effort)
@@ -90,7 +93,7 @@ class TrivialAgent:
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name)
+            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name, context=context)
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)

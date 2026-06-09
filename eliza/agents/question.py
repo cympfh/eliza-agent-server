@@ -73,6 +73,7 @@ class QuestionAgent:
         messages: list[dict[str, str]],
         request_id: str,
         query_hint: str = "",
+        context: str = "vrchat",
     ) -> AgentResponse:
         """会話履歴を受け取り検索ベースで質問に回答する
 
@@ -87,6 +88,8 @@ class QuestionAgent:
             ログ追跡用のリクエスト ID
         query_hint
             IntentRouter から渡されるクエリヒント
+        context
+            会話の発生源 (vrchat / web / cli)
         """
         client = Client(api_key=self.api_key)
         session = client.chat.create(
@@ -98,7 +101,7 @@ class QuestionAgent:
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name)
+            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name, context=context)
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
