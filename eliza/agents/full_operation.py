@@ -19,8 +19,12 @@ JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
-    reasoning: str = Field(description="回答を導くにあたっての思考過程・推論。ユーザーには見せない")
-    answer: str = Field(description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える")
+    reasoning: str = Field(
+        description="回答を導くにあたっての思考過程・推論。ユーザーには見せない"
+    )
+    answer: str = Field(
+        description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
+    )
     citations: list[str] = Field(
         default_factory=list,
         description="回答の根拠にした URL のリスト。参照した Web ページや検索結果の URL を含める。なければ空リスト。",
@@ -72,31 +76,47 @@ class FullOperationAgent:
         path = PROMPT_DIR / filename
         return Template(path.read_text(encoding="utf-8")).render(**kwargs).strip()
 
-    def _inject_eliza_prompt(self, session: Any, request_id: str, context: str = "vrchat") -> None:
+    def _inject_eliza_prompt(
+        self, session: Any, request_id: str, context: str = "vrchat"
+    ) -> None:
         """ELIZA.md の内容と現在時刻を system prompt として先頭に差し込む"""
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name, context=context)
+            prompt = self._load_prompt(
+                "ELIZA.md", agent_name=self.agent_name, context=context
+            )
             if prompt:
-                logger.info(f"[REQUEST ID: {request_id}] Injecting ELIZA.md as system prompt...")
+                logger.info(
+                    f"[REQUEST ID: {request_id}] Injecting ELIZA.md as system prompt..."
+                )
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
+        session.append(
+            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        )
 
     def _inject_memory_context(self, session: Any, request_id: str) -> None:
         """直近の会話履歴（+ summary）を system メッセージとして差し込む（常に実行）"""
         memory_block = eliza.memory.get_memory_context_block()
         if memory_block:
-            logger.info(f"[REQUEST ID: {request_id}] Injecting memory context as system message...")
+            logger.info(
+                f"[REQUEST ID: {request_id}] Injecting memory context as system message..."
+            )
             session.append(chat.system(memory_block))
 
     def _inject_skill_summary(self, session: Any, request_id: str) -> None:
         """skill summary を system メッセージとして差し込む"""
         skills = eliza.tools.Skill(interact=self.interact).skills()
         if skills:
-            logger.info(f"[REQUEST ID: {request_id}] Injecting skill summary as system message...")
+            logger.info(
+                f"[REQUEST ID: {request_id}] Injecting skill summary as system message..."
+            )
             skill_list = "\n".join(f"- {s.name}: {s.description}" for s in skills)
-            session.append(chat.system(self._load_prompt("SKILL_INSTRUCTION.md", skill_list=skill_list)))
+            session.append(
+                chat.system(
+                    self._load_prompt("SKILL_INSTRUCTION.md", skill_list=skill_list)
+                )
+            )
 
     def run(
         self,
@@ -124,7 +144,9 @@ class FullOperationAgent:
         client = Client(api_key=self.api_key)
 
         available_tools = eliza.tools.create_tools(interact=self.interact, search=True)
-        logger.info(f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools...")
+        logger.info(
+            f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
+        )
         session = client.chat.create(
             model=self.model,
             tools=available_tools,
@@ -154,23 +176,38 @@ class FullOperationAgent:
         # レスポンス生成 / tool calling ループ
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
         for tool_loop in range(1, max_tool_loops + 1):
-            logger.info(f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{max_tool_loops})")
+            logger.info(
+                f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{max_tool_loops})"
+            )
             response = session.sample()
             tool_used = False
 
             if response.tool_calls:
-                logger.info(f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}")
+                logger.info(
+                    f"[REQUEST ID: {request_id}] Tool calls detected: {len(response.tool_calls)}"
+                )
+                session.append(response)
                 for tool_call in response.tool_calls:
                     tool_name: str = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
-                    logger.info(f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}")
+                    tool_args = (
+                        json.loads(tool_call.function.arguments)
+                        if tool_call.function.arguments
+                        else {}
+                    )
+                    logger.info(
+                        f"[REQUEST ID: {request_id}] Tool call: {tool_name} with args: {tool_args}"
+                    )
                     if eliza.tools.is_server_side(tool_name):
                         continue
                     # Client-side tool calling
-                    result = eliza.tools.call(tool_name, tool_args, interact=self.interact)
+                    result = eliza.tools.call(
+                        tool_name, tool_args, interact=self.interact
+                    )
                     result_str = json.dumps(result, ensure_ascii=False)
                     logger.info(f"[REQUEST ID: {request_id}] Tool result: {result_str}")
-                    tool_history.append(({"name": tool_name, "args": tool_args}, result))
+                    tool_history.append(
+                        ({"name": tool_name, "args": tool_args}, result)
+                    )
                     if result:
                         tool_used = True
                         session.append(chat.tool_result(json.dumps(result)))
@@ -182,11 +219,18 @@ class FullOperationAgent:
                         f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
                     )
                 if response.content:
-                    session.append(chat.assistant(f"ここまでの仮説: {response.content}"))
+                    session.append(
+                        chat.assistant(f"ここまでの仮説: {response.content}")
+                    )
 
-                skill_just_used = any(t[0]["name"] == "skill_use" for t in tool_history[-len(response.tool_calls) :])
+                skill_just_used = any(
+                    t[0]["name"] == "skill_use"
+                    for t in tool_history[-len(response.tool_calls) :]
+                )
                 if skill_just_used:
-                    session.append(chat.system(self._load_prompt("SKILL_FETCHED_INSTRUCTION.md")))
+                    session.append(
+                        chat.system(self._load_prompt("SKILL_FETCHED_INSTRUCTION.md"))
+                    )
 
                 session.append(
                     chat.system(
@@ -206,7 +250,9 @@ class FullOperationAgent:
             session.append(chat.system(f"実際に実行したツール: {', '.join(executed)}"))
         else:
             session.append(
-                chat.system("実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。")
+                chat.system(
+                    "実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。"
+                )
             )
         _, agent_answer = session.parse(AgentAnswer)
 
