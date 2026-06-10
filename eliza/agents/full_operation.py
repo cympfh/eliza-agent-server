@@ -41,7 +41,6 @@ class FullOperationAgent:
     def __init__(
         self,
         api_key: str,
-        deep: bool = False,
         interact: bool = False,
     ):
         """ローカルツールと検索ツールを両方使えるエージェントを初期化する
@@ -50,15 +49,12 @@ class FullOperationAgent:
         ----------
         api_key
             xAI API キー
-        deep
-            True のとき deep_research スキルを有効にする
         interact
             True のとき スキルを interact モードでレンダリングする
         """
         self.api_key = api_key
         self.model = MODEL
         self.reasoning_effort = HEAVY_REASONING_EFFORT
-        self.deep = deep
         self.interact = interact
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
@@ -96,30 +92,11 @@ class FullOperationAgent:
 
     def _inject_skill_summary(self, session: Any, request_id: str) -> None:
         """skill summary を system メッセージとして差し込む"""
-        skills = eliza.tools.Skill(deep=self.deep, interact=self.interact).skills()
+        skills = eliza.tools.Skill(interact=self.interact).skills()
         if skills:
             logger.info(f"[REQUEST ID: {request_id}] Injecting skill summary as system message...")
             skill_list = "\n".join(f"- {s.name}: {s.description}" for s in skills)
             session.append(chat.system(self._load_prompt("SKILL_INSTRUCTION.md", skill_list=skill_list)))
-
-    _TOOL_INTENT_PATTERNS = [
-        "検索します",
-        "検索してみます",
-        "調べます",
-        "調べてみます",
-        "確認します",
-        "確認してみます",
-        "調べますね",
-        "検索しますね",
-        "確認しますね",
-        "探します",
-        "探してみます",
-        "調べてみますね",
-    ]
-
-    def _should_retry_with_tool(self, content: str) -> bool:
-        """ツールを使わずにツール使用の意図を示す文言が含まれているか判定する"""
-        return any(pattern in content for pattern in self._TOOL_INTENT_PATTERNS)
 
     def run(
         self,
@@ -146,7 +123,7 @@ class FullOperationAgent:
         """
         client = Client(api_key=self.api_key)
 
-        available_tools = eliza.tools.create_tools(deep=self.deep, interact=self.interact, search=True)
+        available_tools = eliza.tools.create_tools(interact=self.interact, search=True)
         logger.info(f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools...")
         session = client.chat.create(
             model=self.model,
@@ -190,7 +167,7 @@ class FullOperationAgent:
                     if eliza.tools.is_server_side(tool_name):
                         continue
                     # Client-side tool calling
-                    result = eliza.tools.call(tool_name, tool_args, deep=self.deep, interact=self.interact)
+                    result = eliza.tools.call(tool_name, tool_args, interact=self.interact)
                     result_str = json.dumps(result, ensure_ascii=False)
                     logger.info(f"[REQUEST ID: {request_id}] Tool result: {result_str}")
                     tool_history.append(({"name": tool_name, "args": tool_args}, result))
@@ -219,16 +196,6 @@ class FullOperationAgent:
                         )
                     )
                 )
-            elif self._should_retry_with_tool(response.content):
-                remaining = max_tool_loops - tool_loop - 1
-                if remaining > 0:
-                    logger.info(
-                        f"[REQUEST ID: {request_id}] Response mentions tool intent but no tool was called. Retrying with tool instruction..."
-                    )
-                    session.append(chat.assistant(response.content))
-                    session.append(chat.system(self._load_prompt("TOOL_REQUIRED_INSTRUCTION.md")))
-                else:
-                    break
             else:
                 break
 

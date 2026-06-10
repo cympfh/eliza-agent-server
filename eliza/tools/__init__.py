@@ -27,7 +27,7 @@ def is_server_side(tool_name: str) -> bool:
 
 
 def create_tools(
-    deep: bool = False, interact: bool = False, search: bool = True
+    interact: bool = False, search: bool = True
 ) -> list[chat_pb2.Tool]:
     """Create tools for Grok agent"""
     available_tools = (
@@ -45,7 +45,7 @@ def create_tools(
     available_tools.extend(Browser().create_tools())
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
-    available_tools.extend(Skill(deep=deep, interact=interact).create_tools())
+    available_tools.extend(Skill(interact=interact).create_tools())
     available_tools.extend(SubAgents().create_tools())
     available_tools.extend(Schedule().create_tools())
     available_tools.extend(Tenki().create_tools())
@@ -54,7 +54,7 @@ def create_tools(
 
 
 def call(
-    tool_name: str, tool_args: dict, deep: bool = False, interact: bool = False
+    tool_name: str, tool_args: dict, interact: bool = False
 ) -> dict[str, Any] | None:
     """Call any tool by name"""
     match tool_name:
@@ -72,7 +72,7 @@ def call(
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
         case _ if tool_name.startswith("skill_"):
-            return Skill(deep=deep, interact=interact).call(tool_name, tool_args)
+            return Skill(interact=interact).call(tool_name, tool_args)
         case _ if tool_name.startswith("schedule_"):
             return Schedule().call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):

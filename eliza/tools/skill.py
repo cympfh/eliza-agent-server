@@ -33,20 +33,17 @@ class SkillDef:
         self.instruction = instruction
 
 
-_DEEP_ONLY_SKILLS = {"deep_research"}
 _CACHE_TTL = 30.0
 
 
 @cached(cache=TTLCache(maxsize=4, ttl=_CACHE_TTL))
-def _load_skills(deep: bool = False, interact: bool = False) -> list[SkillDef]:
+def _load_skills(interact: bool = False) -> list[SkillDef]:
     """SKILL_DIR 以下の .md ファイルを読み込んでスキル一覧を返す
 
     スキル本文は Jinja2 テンプレートとして interact 変数を渡してレンダリングする
 
     Parameters
     ----------
-    deep
-        False のとき deep_research など deep 専用スキルを除外する
     interact
         スキルテンプレートに渡す interact フラグ
     """
@@ -58,8 +55,6 @@ def _load_skills(deep: bool = False, interact: bool = False) -> list[SkillDef]:
             content = md_file.read_text(encoding="utf-8")
             name, description, instruction = _parse_skill_md(content, interact=interact)
             if name and description:
-                if not deep and name in _DEEP_ONLY_SKILLS:
-                    continue
                 skills.append(
                     SkillDef(
                         name=name, description=description, instruction=instruction
@@ -106,26 +101,23 @@ class SkillUseParams(BaseModel):
 class Skill:
     """スキルツール"""
 
-    def __init__(self, deep: bool = False, interact: bool = False):
+    def __init__(self, interact: bool = False):
         """スキルツールを初期化する
 
         Parameters
         ----------
-        deep
-            True のとき deep_research など deep 専用スキルを含める
         interact
             True のとき スキルの instruction を interact モードでレンダリングする
         """
-        self.deep = deep
         self.interact = interact
 
     def skills(self) -> list[SkillDef]:
         """利用可能なスキル一覧を返す"""
-        return _load_skills(deep=self.deep, interact=self.interact)
+        return _load_skills(interact=self.interact)
 
     def skill_use(self, skill_name: str) -> dict[str, Any]:
         """スキルの instruction を返す"""
-        skills = _load_skills(deep=self.deep, interact=self.interact)
+        skills = _load_skills(interact=self.interact)
         for skill in skills:
             if skill.name == skill_name:
                 return {
@@ -137,7 +129,7 @@ class Skill:
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """skill_use ツールを返す"""
-        skills = _load_skills(deep=self.deep, interact=self.interact)
+        skills = _load_skills(interact=self.interact)
         if not skills:
             return []
         skill_list = "\n".join(f"- {s.name}" for s in skills)

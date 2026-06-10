@@ -160,15 +160,6 @@
 
       <!-- Controls -->
       <div class="flex items-center gap-x-4">
-        <!-- Deep -->
-        <div class="flex items-center gap-x-2">
-          <div class="text-xs text-zinc-400">Deep</div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="deep-toggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
         <!-- Interact -->
         <div class="flex items-center gap-x-2">
           <div class="text-xs text-zinc-400">Interact</div>
@@ -885,7 +876,6 @@
     }
 
     async function doChat() {
-      const deep = document.getElementById('deep-toggle').checked;
       const interact = document.getElementById('interact-toggle').checked;
 
       const payloadMessages = messages
@@ -895,7 +885,6 @@
       const body = {
         messages: payloadMessages,
         max_tool_loops: 5,
-        deep: deep,
         interact: interact,
         context: 'web'
       };
@@ -1044,11 +1033,8 @@
 
     // Init toggles (no persistence needed)
     function initToggles() {
-      // Default both off (safe)
-      const deep = document.getElementById('deep-toggle');
+      // Default off (safe)
       const interact = document.getElementById('interact-toggle');
-      
-      deep.checked = false;
       interact.checked = false;
     }
 
