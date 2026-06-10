@@ -20,6 +20,7 @@ description: ワークスペース内のファイルの読み書き メモやド
 - workspace_write
     - workspace 内のファイルに書き込む
     - append=false で上書き append=true で追記
+    - 追記時は行頭に [YYYY-MM-DD HH:MM:SS] が自動で付く
 
 ## スキルの手順
 

@@ -1,8 +1,10 @@
 """Workspace tool for Grok agent - ワークスペース内のファイル読み書き"""
 
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
@@ -11,6 +13,7 @@ from xai_sdk.proto import chat_pb2
 WORKSPACE_ROOT = Path(
     os.environ.get("WORKSPACE_ROOT", str(Path.home() / "Dropbox/mouse-server/eliza"))
 ).expanduser()
+JST = ZoneInfo("Asia/Tokyo")
 
 _DEFAULT_TAIL = 100
 
@@ -135,15 +138,24 @@ class Workspace:
         ws_dir = path.parent
         if not ws_dir.exists():
             return {"status": "error", "message": f"workspace が存在しません {workspace}"}
-        mode = "a" if append else "w"
-        with open(path, mode, encoding="utf-8") as f:
-            f.write(content)
+        if append:
+            ts = datetime.now(JST).strftime("[%Y-%m-%d %H:%M:%S]")
+            body = f"{ts} {content}"
+            if not body.endswith("\n"):
+                body += "\n"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(body)
+            written = len(body)
+        else:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            written = len(content)
         return {
             "status": "ok",
             "workspace": workspace,
             "filename": filename,
             "mode": "append" if append else "overwrite",
-            "written_chars": len(content),
+            "written_chars": written,
         }
 
     def create_tools(self) -> list[chat_pb2.Tool]:
@@ -179,6 +191,7 @@ class Workspace:
                 description=(
                     "workspace 内のファイルに書き込みます。"
                     "append=false で上書き append=true で追記します。"
+                    "追記モードでは行頭に [YYYY-MM-DD HH:MM:SS] のタイムスタンプが自動で付きます。"
                     "既存ファイルを編集する場合は workspace_read で内容を確認してから書き込んでください。"
                 ),
                 parameters=WorkspaceWriteParams.model_json_schema(),
