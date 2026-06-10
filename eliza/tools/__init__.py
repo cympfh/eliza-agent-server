@@ -14,6 +14,7 @@ from .subagents import SubAgents
 from .switchbot import Switchbot
 from .tenki import Tenki
 from .todo import ToDo
+from .workspace import Workspace
 from .youtube import YouTubeSearch
 
 
@@ -50,6 +51,7 @@ def create_tools(
     available_tools.extend(Schedule().create_tools())
     available_tools.extend(Tenki().create_tools())
     available_tools.extend(ToDo().create_tools())
+    available_tools.extend(Workspace().create_tools())
     return available_tools
 
 
@@ -77,6 +79,8 @@ def call(
             return Schedule().call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):
             return ToDo().call(tool_name, tool_args)
+        case _ if tool_name.startswith("workspace_"):
+            return Workspace().call(tool_name, tool_args)
         case _ if tool_name.startswith("subagents_"):
             return SubAgents().call(tool_name, tool_args)
         case _ if (
