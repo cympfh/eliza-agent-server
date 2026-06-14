@@ -1,11 +1,14 @@
 ---
 name: workspace
-description: ワークスペース内のファイルの読み書き メモやドキュメントの保存と参照
+description: ワークスペース内のファイルの読み書き メモやドキュメントの保存と参照 URLからのファイルの保存
 ---
 # ワークスペース内のファイルを読み書きする
 
 メモ ドキュメント ノートなどをファイルとして保存し あとから参照できる。
 ファイルは workspace というディレクトリごとに分類して管理される。
+画像や動画ファイルをURLから保存することもできる。
+
+workspace は新規ファイルの作成やURLからの保存のときに自動で作成される。
 
 ## tools
 
@@ -21,6 +24,9 @@ description: ワークスペース内のファイルの読み書き メモやド
     - workspace 内のファイルに書き込む
     - append=false で上書き append=true で追記
     - 追記時は行頭に [YYYY-MM-DD HH:MM:SS] が自動で付く
+- workspace_download
+    - URLからファイルをダウンロードして workspace に保存する
+    - workspace とファイル名を指定する
 
 ## スキルの手順
 
@@ -38,8 +44,15 @@ description: ワークスペース内のファイルの読み書き メモやド
 3. workspace_write で書き込む
     - 新しく書き直すなら append=false
     - 末尾に追記するなら append=true
-{% if interact %}
 
+### URLからファイルを保存するとき
+
+1. workspace_list で workspace を確認する
+2. workspace_download で URL からファイルをダウンロードして保存する
+    - 書き込み先の workspace とファイル名を指定する
+3. ダウンロードに成功したかどうか filesize がどれくらいだったかを確認する
+
+{% if interact %}
 ### ユーザーへの確認
 
 - 上書き append のどちらか不明な場合はユーザーに確認する

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import requests
 from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
@@ -26,7 +27,12 @@ def _safe_workspace_dir(workspace: str) -> Path | None:
     workspace
         ワークスペース名
     """
-    if not workspace or "/" in workspace or "\\" in workspace or workspace.startswith("."):
+    if (
+        not workspace
+        or "/" in workspace
+        or "\\" in workspace
+        or workspace.startswith(".")
+    ):
         return None
     return (WORKSPACE_ROOT / workspace).resolve()
 
@@ -80,15 +86,23 @@ class WorkspaceWriteParams(BaseModel):
     )
 
 
+class WorkspaceDownloadParams(BaseModel):
+    workspace: str = Field(description="ダウンロードして保存する workspace 名")
+    filename: str = Field(description="ダウンロードして保存するファイル名")
+    url: str = Field(description="ダウンロードするファイルの URL")
+
+
 class Workspace:
-    """ワークスペース内のファイルを読み書きするツール"""
+    """ワークスペース内のファイルを読み書き保存するツール"""
 
     def list_workspaces(self) -> dict[str, Any]:
         """workspace の一覧を返す"""
         if not WORKSPACE_ROOT.exists():
             return {"status": "ok", "workspaces": []}
         workspaces = sorted(
-            d.name for d in WORKSPACE_ROOT.iterdir() if d.is_dir() and not d.name.startswith(".")
+            d.name
+            for d in WORKSPACE_ROOT.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
         )
         return {"status": "ok", "workspaces": workspaces}
 
@@ -98,12 +112,19 @@ class Workspace:
         if ws_dir is None:
             return {"status": "error", "message": f"不正な workspace 名 {workspace}"}
         if not ws_dir.exists():
-            return {"status": "error", "message": f"workspace が存在しません {workspace}"}
+            return {
+                "status": "error",
+                "message": f"workspace が存在しません {workspace}",
+            }
         files = sorted(f.name for f in ws_dir.iterdir() if f.is_file())
         return {"status": "ok", "workspace": workspace, "files": files}
 
     def read_file(
-        self, workspace: str, filename: str, tail: int = _DEFAULT_TAIL, full: bool = False
+        self,
+        workspace: str,
+        filename: str,
+        tail: int = _DEFAULT_TAIL,
+        full: bool = False,
     ) -> dict[str, Any]:
         """ファイルの内容を返す"""
         path = _safe_file_path(workspace, filename)
@@ -137,7 +158,7 @@ class Workspace:
             return {"status": "error", "message": "不正な workspace 名またはファイル名"}
         ws_dir = path.parent
         if not ws_dir.exists():
-            return {"status": "error", "message": f"workspace が存在しません {workspace}"}
+            ws_dir.mkdir(parents=True)
         if append:
             ts = datetime.now(JST).strftime("[%Y-%m-%d %H:%M:%S]")
             body = f"{ts} {content}"
@@ -157,6 +178,33 @@ class Workspace:
             "mode": "append" if append else "overwrite",
             "written_chars": written,
         }
+
+    def download_file(self, workspace: str, filename: str, url: str) -> dict[str, Any]:
+        """URL からファイルをダウンロードして保存する"""
+
+        path = _safe_file_path(workspace, filename)
+        if path is None:
+            return {"status": "error", "message": "不正な workspace 名またはファイル名"}
+        ws_dir = path.parent
+        if not ws_dir.exists():
+            ws_dir.mkdir(parents=True)
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(path, "wb") as f:
+                f.write(response.content)
+            return {
+                "status": "ok",
+                "workspace": workspace,
+                "filename": filename,
+                "url": url,
+                "filesize": len(response.content),
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"ダウンロードに失敗しました: {str(e)}",
+            }
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """Grok agent 用のツール定義を作成"""
@@ -196,6 +244,14 @@ class Workspace:
                 ),
                 parameters=WorkspaceWriteParams.model_json_schema(),
             ),
+            tool(
+                name="workspace_download",
+                description=(
+                    "URL からファイルをダウンロードして workspace 内に保存します。"
+                    "append オプションはありません。"
+                ),
+                parameters=WorkspaceDownloadParams.model_json_schema(),
+            ),
         ]
 
     def call(self, tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
@@ -218,6 +274,12 @@ class Workspace:
                     filename=tool_args["filename"],
                     content=tool_args["content"],
                     append=tool_args.get("append", False),
+                )
+            case "workspace_download":
+                return self.download_file(
+                    workspace=tool_args["workspace"],
+                    filename=tool_args["filename"],
+                    url=tool_args["url"],
                 )
             case _:
                 raise ValueError(f"Unknown tool: {tool_name}")
