@@ -1051,7 +1051,9 @@
       // Keyboard focus hint
       const chat = document.getElementById('chat');
       chat.addEventListener('click', () => {
-        document.getElementById('input').focus();
+        if (!window.getSelection().toString()) {
+          document.getElementById('input').focus();
+        }
       });
     }
 
