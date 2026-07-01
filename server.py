@@ -142,6 +142,16 @@ class SummaryResponse(BaseModel):
     status: str
 
 
+class TranslateRequest(BaseModel):
+    source_lang: str | None = None
+    target_lang: str
+    text: str
+
+
+class TranslateResponse(BaseModel):
+    translated_text: str
+
+
 class SessionPayload(BaseModel):
     id: str
     title: str = ""
@@ -312,6 +322,50 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 logger.error("=" * 80)
 
     raise HTTPException(status_code=500, detail=f"Error: {str(last_error)}")
+
+
+@app.post(
+    "/eliza/api/translate",
+    response_model=TranslateResponse,
+)
+async def post_translate(request: TranslateRequest) -> TranslateResponse:
+    """翻訳専用 API
+
+    翻訳元 翻訳先 翻訳テキストを受け取り TranslatorAgent に直接投げ翻訳結果のみ返す
+
+    Parameters
+    ----------
+    request
+        翻訳リクエスト (source_lang, target_lang, text)
+    """
+    request_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+
+    logger.info("=" * 80)
+    logger.info(f"[REQUEST ID: {request_id}] POST /translate")
+    logger.info(f"[REQUEST] source_lang={request.source_lang} target_lang={request.target_lang}")
+    logger.info(f"[REQUEST] text: {request.text}")
+
+    if not XAI_API_KEY:
+        logger.error(f"[REQUEST ID: {request_id}] XAI_API_KEY is not set")
+        raise HTTPException(status_code=500, detail="XAI_API_KEY is not set")
+
+    try:
+        translated_text = await asyncio.to_thread(
+            TranslatorAgent(api_key=XAI_API_KEY).translate,
+            text=request.text,
+            target_lang=request.target_lang,
+            source_lang=request.source_lang,
+            request_id=request_id,
+        )
+    except Exception as e:
+        logger.error(f"[REQUEST ID: {request_id}] Error occurred: {str(e)}")
+        logger.error("=" * 80)
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+    logger.info(f"[RESPONSE ID: {request_id}] translated_text: {translated_text}")
+    logger.info("=" * 80)
+
+    return TranslateResponse(translated_text=translated_text)
 
 
 @app.get("/eliza/api/sessions", response_model=list[SessionPayload])
