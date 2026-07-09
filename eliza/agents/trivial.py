@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -18,8 +17,12 @@ JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
-    reasoning: str = Field(description="回答を導くにあたっての思考過程・推論。ユーザーには見せない")
-    answer: str = Field(description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える")
+    reasoning: str = Field(
+        description="回答を導くにあたっての思考過程・推論。ユーザーには見せない"
+    )
+    answer: str = Field(
+        description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
+    )
     citations: list[str] = Field(
         default_factory=list,
         description="参照した URL のリスト。なければ空リスト",
@@ -88,16 +91,22 @@ class TrivialAgent:
             会話の発生源 (vrchat / web / cli)
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(model=self.model, reasoning_effort=self.reasoning_effort)
+        session = client.chat.create(
+            model=self.model, reasoning_effort=self.reasoning_effort
+        )
 
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name, context=context)
+            prompt = self._load_prompt(
+                "ELIZA.md", agent_name=self.agent_name, context=context
+            )
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
+        session.append(
+            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        )
 
         for msg in messages:
             if msg["role"] == "system":

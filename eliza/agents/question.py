@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -19,8 +18,12 @@ JST = timezone(timedelta(hours=9))
 
 
 class AgentAnswer(BaseModel):
-    reasoning: str = Field(description="回答を導くにあたっての思考過程・推論。ユーザーには見せない")
-    answer: str = Field(description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える")
+    reasoning: str = Field(
+        description="回答を導くにあたっての思考過程・推論。ユーザーには見せない"
+    )
+    answer: str = Field(
+        description="ユーザーへの最終回答。自然な日本語で、簡潔かつ親切に答える"
+    )
     citations: list[str] = Field(
         default_factory=list,
         description="回答の根拠にした URL のリスト。参照した Web ページや検索結果の URL を含める。なければ空リスト",
@@ -101,11 +104,15 @@ class QuestionAgent:
         # ELIZA プロンプト差し込み
         path = PROMPT_DIR / "ELIZA.md"
         if path.exists():
-            prompt = self._load_prompt("ELIZA.md", agent_name=self.agent_name, context=context)
+            prompt = self._load_prompt(
+                "ELIZA.md", agent_name=self.agent_name, context=context
+            )
             if prompt:
                 session.append(chat.system(prompt))
         now = datetime.now(tz=JST)
-        session.append(chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
+        session.append(
+            chat.system(f"現在の日時（JST）: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        )
 
         for msg in messages:
             if msg["role"] == "system":

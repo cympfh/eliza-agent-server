@@ -19,10 +19,13 @@ from pydantic import BaseModel, Field
 
 import eliza.memory
 import eliza.tools
-from eliza.agents.full_operation import FullOperationAgent
-from eliza.agents.question import QuestionAgent
-from eliza.agents.router import IntentLabel, IntentRouter
-from eliza.agents.translator import TranslatorAgent
+from eliza.agents import (
+    FullOperationAgent,
+    IntentLabel,
+    IntentRouter,
+    QuestionAgent,
+    TranslatorAgent,
+)
 from eliza.agents.trivial import TrivialAgent
 from eliza.tools.schedule import run_scheduled_tasks_loop
 
@@ -53,7 +56,9 @@ async def _auto_summary_loop():
         await asyncio.sleep(_AUTO_SUMMARY_INTERVAL_SECONDS)
         request_id = f"auto-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         if not eliza.memory.has_recent_messages(minutes=30):
-            logger.info("[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping.")
+            logger.info(
+                "[AUTO SUMMARY] No recent messages in the last 30 minutes. Skipping."
+            )
             continue
         logger.info(f"[AUTO SUMMARY] Starting auto summary ({request_id})...")
         await asyncio.to_thread(_generate_summary_in_background, request_id)
@@ -192,7 +197,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
     for i, msg in enumerate(request.messages):
         logger.info(f"  Message[{i}]:")
         logger.info(f"    role: {msg.role}")
-        logger.info(f"    content: {msg.content[:200]}{'...' if len(msg.content) > 200 else ''}")
+        logger.info(
+            f"    content: {msg.content[:200]}{'...' if len(msg.content) > 200 else ''}"
+        )
     logger.info("-" * 80)
 
     if not XAI_API_KEY:
@@ -208,8 +215,12 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            logger.info(f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})")
-            messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
+            logger.info(
+                f"[REQUEST ID: {request_id}] Creating Grok client... (attempt {attempt}/{MAX_RETRIES})"
+            )
+            messages_dicts = [
+                {"role": m.role, "content": m.content} for m in request.messages
+            ]
 
             # router で意図を分類
             intent_result = await asyncio.to_thread(
@@ -315,7 +326,9 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
 
         except Exception as e:
             last_error = e
-            logger.error(f"[REQUEST ID: {request_id}] Error occurred (attempt {attempt}/{MAX_RETRIES}): {str(e)}")
+            logger.error(
+                f"[REQUEST ID: {request_id}] Error occurred (attempt {attempt}/{MAX_RETRIES}): {str(e)}"
+            )
             if attempt < MAX_RETRIES:
                 logger.info(f"[REQUEST ID: {request_id}] Retrying...")
             else:
@@ -342,7 +355,9 @@ async def post_translate(request: TranslateRequest) -> TranslateResponse:
 
     logger.info("=" * 80)
     logger.info(f"[REQUEST ID: {request_id}] POST /translate")
-    logger.info(f"[REQUEST] source_lang={request.source_lang} target_lang={request.target_lang}")
+    logger.info(
+        f"[REQUEST] source_lang={request.source_lang} target_lang={request.target_lang}"
+    )
     logger.info(f"[REQUEST] text: {request.text}")
 
     if not XAI_API_KEY:
@@ -413,7 +428,9 @@ def _generate_summary_in_background(request_id: str):
         )
         logger.info("=" * 80)
     except Exception as e:
-        logger.error(f"[REQUEST ID: {request_id}] Error in summary background task: {str(e)}")
+        logger.error(
+            f"[REQUEST ID: {request_id}] Error in summary background task: {str(e)}"
+        )
         logger.error("=" * 80)
 
 

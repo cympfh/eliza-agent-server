@@ -36,7 +36,9 @@ class TranslatorAgent(TrivialAgent):
             ログ追跡用のリクエスト ID
         """
         client = Client(api_key=self.api_key)
-        session = client.chat.create(model=self.model, reasoning_effort=self.reasoning_effort)
+        session = client.chat.create(
+            model=self.model, reasoning_effort=self.reasoning_effort
+        )
 
         prompt = self._load_prompt(
             "TRANSLATE_INSTRUCTION.md",
