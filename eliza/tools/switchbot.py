@@ -19,8 +19,8 @@ class SwitchbotEmptyParams(BaseModel):
 
 
 class SwitchbotAirconOnParams(BaseModel):
-    mode: Literal["heat", "cool", "fan"] = Field(
-        description="エアコンのモード: heat=暖房, cool=冷房, fan=送風"
+    mode: Literal["heat", "cool", "strong_cool", "fan"] = Field(
+        description="エアコンのモード: heat=暖房, cool=冷房, strong_cool=強冷房, fan=送風"
     )
 
 
@@ -198,8 +198,8 @@ class Switchbot:
             tool(
                 name="switchbot_post_aircon_on",
                 description=(
-                    "エアコンをつけます。mode で暖房(heat)/冷房(cool)/送風(fan) を選択できます。"
-                    "部屋が寒いときは heat、暑いときは cool、少し蒸し暑い程度なら fan が適切です。"
+                    "エアコンをつけます。mode で暖房(heat)/冷房(cool)/強冷房(strong_cool)/送風(fan) を選択できます。"
+                    "部屋が寒いときは heat、暑いときは cool、本当に暑いときは strong_cool、少し蒸し暑い程度なら fan が適切"
                 ),
                 parameters=SwitchbotAirconOnParams.model_json_schema(),
             ),

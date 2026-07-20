@@ -175,7 +175,6 @@ class FullOperationAgent:
         context
             会話の発生源 (vrchat / web / cli)
         """
-        max_tool_loops = MAX_TOOL_LOOPS
         client = Client(api_key=self.api_key)
 
         available_tools = eliza.tools.create_tools(interact=self.interact, search=True)
@@ -210,9 +209,9 @@ class FullOperationAgent:
 
         # レスポンス生成 / tool calling ループ
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
-        for tool_loop in range(1, max_tool_loops + 1):
+        for tool_loop in range(1, MAX_TOOL_LOOPS + 1):
             logger.info(
-                f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{max_tool_loops})"
+                f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{MAX_TOOL_LOOPS})"
             )
             response = self._step_with_retry(
                 session.sample, request_id, f"session.sample (tool loop {tool_loop})"
@@ -250,7 +249,7 @@ class FullOperationAgent:
                         session.append(chat.tool_result(json.dumps(result)))
 
             if tool_used:
-                remaining = max_tool_loops - tool_loop
+                remaining = MAX_TOOL_LOOPS - tool_loop
                 if remaining == 0:
                     logger.warning(
                         f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."
