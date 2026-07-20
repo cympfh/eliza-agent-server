@@ -129,7 +129,6 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message]
-    max_tool_loops: int = 5
     interact: bool = False
     context: Literal["vrchat", "web", "cli"] = "vrchat"
 
@@ -271,7 +270,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,
-                    max_tool_loops=request.max_tool_loops,
                     query_hint=intent_result.query_hint,
                     context=request.context,
                 )

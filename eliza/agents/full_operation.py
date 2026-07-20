@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 PROMPT_DIR = Path(__file__).parent.parent / "prompt"
 JST = timezone(timedelta(hours=9))
+STEP_MAX_RETRIES = 3
+MAX_TOOL_LOOPS = 5
 
 
 class AgentAnswer(BaseModel):
@@ -118,11 +120,45 @@ class FullOperationAgent:
                 )
             )
 
+    def _step_with_retry(
+        self,
+        fn: Any,
+        request_id: str,
+        step_name: str,
+        *,
+        max_retries: int = STEP_MAX_RETRIES,
+    ) -> Any:
+        """API 呼び出し
+
+        エラーが起きた場合その場のステップ（sample / parse）だけをリトライする
+
+        Parameters
+        ----------
+        fn
+            リトライ対象の呼び出し（引数なしの callable）
+        request_id
+            ログ追跡用のリクエスト ID
+        step_name
+            ログに出すステップ名（例: "session.sample"）
+        max_retries
+            最大リトライ回数
+        """
+        last_error: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                return fn()
+            except Exception as e:
+                last_error = e
+                logger.error(
+                    f"[REQUEST ID: {request_id}] {step_name} failed "
+                    f"(attempt {attempt}/{max_retries}): {e}"
+                )
+        raise last_error  # type: ignore[misc]
+
     def run(
         self,
         messages: list[dict[str, str]],
         request_id: str,
-        max_tool_loops: int = 5,
         query_hint: str = "",
         context: str = "vrchat",
     ) -> AgentResponse:
@@ -134,13 +170,12 @@ class FullOperationAgent:
             会話履歴 (role と content を持つ dict のリスト)
         request_id
             ログ追跡用のリクエスト ID
-        max_tool_loops
-            tool calling ループの最大回数
         query_hint
             IntentRouter から渡されるクエリヒント
         context
             会話の発生源 (vrchat / web / cli)
         """
+        max_tool_loops = MAX_TOOL_LOOPS
         client = Client(api_key=self.api_key)
 
         available_tools = eliza.tools.create_tools(interact=self.interact, search=True)
@@ -179,7 +214,9 @@ class FullOperationAgent:
             logger.info(
                 f"[REQUEST ID: {request_id}] Generating response... (tool loop {tool_loop}/{max_tool_loops})"
             )
-            response = session.sample()
+            response = self._step_with_retry(
+                session.sample, request_id, f"session.sample (tool loop {tool_loop})"
+            )
             tool_used = False
 
             if response.tool_calls:
@@ -254,7 +291,9 @@ class FullOperationAgent:
                     "実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。"
                 )
             )
-        _, agent_answer = session.parse(AgentAnswer)
+        _, agent_answer = self._step_with_retry(
+            lambda: session.parse(AgentAnswer), request_id, "session.parse"
+        )
 
         return AgentResponse(
             content=agent_answer.answer,
