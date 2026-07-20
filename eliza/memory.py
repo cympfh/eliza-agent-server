@@ -44,7 +44,7 @@ def _call_grok(
     model
         使用する Grok モデル名
     reasoning_effort
-        reasoning effort ("none" | "low" | "medium" | "high")
+        reasoning effort ("low" | "medium" | "high")
     """
     client = Client(api_key=XAI_API_KEY)
     session = client.chat.create(model=model, reasoning_effort=reasoning_effort)
