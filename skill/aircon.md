@@ -11,7 +11,8 @@ description: エアコン (air conditioner) の操作を行う
 - switchbot_post_aircon_on
     - エアコンをつける
     - 引数 `mode` でモードを指定できる
-        - Enum: `cool`, `heat`, `fan`
+        - Enum: `cool`, `strong_cool`, `heat`, `fan`
+        - `strong_cool` は強冷房モード. ユーザーが本当に暑がってる場合に使用する
 - schedule_tool_call_after_minutes
     - 指定した分数後にツールを実行するようスケジュールする
 

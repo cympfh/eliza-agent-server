@@ -213,7 +213,7 @@ class FullOperationAgent:
                         session.append(chat.tool_result(json.dumps(result)))
 
             if tool_used:
-                remaining = max_tool_loops - tool_loop - 1
+                remaining = max_tool_loops - tool_loop
                 if remaining == 0:
                     logger.warning(
                         f"[REQUEST ID: {request_id}] Tool loop limit reached. Forcing final response without tools."

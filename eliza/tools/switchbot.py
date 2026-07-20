@@ -25,7 +25,11 @@ class SwitchbotAirconOnParams(BaseModel):
 
 
 class Switchbot:
-    """Switchbot API クライアント"""
+    """Switchbot API クライアント
+
+    API v1.1 を使う
+    https://github.com/OpenWonderLabs/SwitchBotAPI
+    """
 
     def _auth(self):
         """認証ヘッダーを生成"""
@@ -101,11 +105,16 @@ class Switchbot:
         Parameters
         ----------
         mode
-            "heat" -> 暖房 (26C, fan=auto) / "cool" -> 冷房 (24C, fan=auto) / "fan" -> 送風 (25C)
+            "heat" -> 暖房 (26C, fan=auto)
+            "cool" -> 冷房 (24C, fan=auto)
+            "strong_cool" -> 強冷房 (22C, fan=3)
+            "fan" -> 送風 (25C)
         """
         device_id = "02-202010092320-98867876"
         if mode == "cool":
             parameter = "24,3,1,on"  # 実際は除湿
+        elif mode == "strong_cool":
+            parameter = "22,2,3,on"
         elif mode == "fan":
             parameter = "25,4,3,on"
         else:
