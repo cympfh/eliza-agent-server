@@ -13,6 +13,48 @@ from pydantic import BaseModel, Field
 from xai_sdk.chat import tool
 from xai_sdk.proto import chat_pb2
 
+# SwitchBot API が成功を表す statusCode
+STATUS_OK = 100
+
+# ライトのシーン定義の輝度指定
+#
+# None は turnOff を送って消灯する。
+# "on" は turnOn を送る。輝度を指定できないデバイス (赤外線リモコンの
+# DIY Light など) 用。
+# int (1-100) は setBrightness を送る。消灯中の Color Bulb でも setBrightness
+# だけで点灯するため turnOn は送らない (turnOn を先に送ると前回の輝度で一瞬
+# 明るく点いてしまう)。
+LightLevel = int | Literal["on"] | None
+
+# ライトのシーン定義: (device_id, 表示名, LightLevel) のリスト
+LightScene = list[tuple[str, str, LightLevel]]
+
+LIGHT_OFF_SCENE: LightScene = [
+    ("6055F92DD962", "light-k-a", None),
+    ("6055F922E062", "light-k-c", None),
+    ("6055F9236AAE", "light-c", None),
+    ("6055F92C65B2", "light-w", None),
+    ("68B6B3B2CCE6", "light-e", None),
+    ("02-202411071358-52951738", "light-living", None),
+    ("6055F933FCBA", "light-b-c", 1),
+    ("6055F936FA16", "light-b-b", 1),
+    ("68B6B3AFEAFE", "light-b-a", 1),
+    ("686725B28D1A", "light-vrc", 30),
+]
+
+LIGHT_ON_SCENE: LightScene = [
+    ("6055F92DD962", "light-k-a", None),
+    ("6055F922E062", "light-k-c", None),
+    ("6055F9236AAE", "light-c", None),
+    ("6055F92C65B2", "light-w", None),
+    ("68B6B3B2CCE6", "light-e", None),
+    ("02-202411071358-52951738", "light-living", "on"),
+    ("6055F933FCBA", "light-b-c", 50),
+    ("6055F936FA16", "light-b-b", 50),
+    ("68B6B3AFEAFE", "light-b-a", 50),
+    ("686725B28D1A", "light-vrc", 60),
+]
+
 
 class SwitchbotEmptyParams(BaseModel):
     pass
@@ -126,54 +168,90 @@ class Switchbot:
         }
         return self.send_command(device_id, command)
 
+    def _apply_light_scene(self, scene: LightScene, result: str) -> dict[str, Any]:
+        """ライトのシーンを適用し、各デバイスの応答を検証する
+
+        Parameters
+        ----------
+        scene
+            (device_id, 表示名, level) のリスト。
+            level=None なら turnOff、"on" なら turnOn、int なら setBrightness を送る
+        result
+            全台成功したときに result フィールドへ入れる文字列
+
+        Returns
+        -------
+        dict[str, Any]
+            全台成功なら status="Accepted"。
+            1台でも失敗したら status="Error" と failures に失敗したデバイスの詳細
+        """
+        failures: list[dict[str, Any]] = []
+        for device_id, name, level in scene:
+            if level is None:
+                command = {
+                    "commandType": "command",
+                    "command": "turnOff",
+                    "parameter": "default",
+                }
+            elif level == "on":
+                command = {
+                    "commandType": "command",
+                    "command": "turnOn",
+                    "parameter": "default",
+                }
+            else:
+                command = {
+                    "commandType": "command",
+                    "command": "setBrightness",
+                    "parameter": level,
+                }
+            try:
+                res = self.send_command(device_id, command)
+            except Exception as e:
+                failures.append(
+                    {
+                        "device": name,
+                        "device_id": device_id,
+                        "command": command["command"],
+                        "error": f"{type(e).__name__}: {e}",
+                    }
+                )
+                continue
+            if res.get("statusCode") != STATUS_OK:
+                failures.append(
+                    {
+                        "device": name,
+                        "device_id": device_id,
+                        "command": command["command"],
+                        "statusCode": res.get("statusCode"),
+                        "message": res.get("message"),
+                    }
+                )
+
+        if failures:
+            return {
+                "status": "Error",
+                "result": f"{len(failures)}/{len(scene)} 台のライト操作が失敗した",
+                "failures": failures,
+            }
+        return {"status": "Accepted", "result": result}
+
     def post_light_off(self) -> dict[str, Any]:
         """家の中の全てのライトを消す
 
-        寝る前に使う
+        寝る前に使う。
+        light-b-a/b/c と light-vrc は常夜灯として暗く点灯したままにする。
+        light-living は輝度指定できないため消灯する。
         """
-        # (device_id, brightness)
-        devices = [
-            ("6055F92DD962", 0),
-            ("6055F922E062", 0),
-            ("6055F9236AAE", 0),
-            ("6055F92C65B2", 0),
-            ("68B6B3B2CCE6", 0),
-            ("6055F933FCBA", 1),
-            ("6055F936FA16", 1),
-            ("68B6B3AFEAFE", 1),
-            ("686725B28D1A", 30),
-        ]
-        for device_id, brightness in devices:
-            command = {
-                "commandType": "command",
-                "command": "setBrightness",
-                "parameter": brightness,
-            }
-            self.send_command(device_id, command)
-        return {"status": "Accepted", "result": "All lights off"}
+        return self._apply_light_scene(LIGHT_OFF_SCENE, "All lights off")
 
     def post_light_on(self) -> dict[str, Any]:
-        """家の中の全てのライトをつける"""
-        # (device_id, brightness)
-        devices = [
-            ("6055F92DD962", 0),
-            ("6055F922E062", 0),
-            ("6055F9236AAE", 0),
-            ("6055F92C65B2", 0),
-            ("68B6B3B2CCE6", 0),
-            ("6055F933FCBA", 50),
-            ("6055F936FA16", 50),
-            ("68B6B3AFEAFE", 50),
-            ("686725B28D1A", 60),
-        ]
-        for device_id, brightness in devices:
-            command = {
-                "commandType": "command",
-                "command": "setBrightness",
-                "parameter": brightness,
-            }
-            self.send_command(device_id, command)
-        return {"status": "Accepted", "result": "All lights on"}
+        """家の中の全てのライトをつける
+
+        light-k-a/k-c/c/w/e は点灯対象ではないため消灯する。
+        light-living は輝度指定できないため turnOn で点灯する。
+        """
+        return self._apply_light_scene(LIGHT_ON_SCENE, "All lights on")
 
     def create_tools(self) -> list[chat_pb2.Tool]:
         """Grok agent 用のツール定義を作成"""
@@ -205,7 +283,10 @@ class Switchbot:
             ),
             tool(
                 name="switchbot_post_light_off",
-                description="家の中の全てのライトを消します。寝る前や外出するときに使います。",
+                description=(
+                    "家の中のライトを消します。寝る前や外出するときに使います。"
+                    "一部のライトは常夜灯として暗く点灯したまま残ります。"
+                ),
                 parameters=empty,
             ),
             tool(
