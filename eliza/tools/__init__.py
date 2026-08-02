@@ -73,7 +73,7 @@ def call(
             return Clipboard().call(tool_name, tool_args)
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
-        case _ if tool_name.startswith("skill_"):
+        case "load_skill":
             return Skill(interact=interact).call(tool_name, tool_args)
         case _ if tool_name.startswith("schedule_"):
             return Schedule().call(tool_name, tool_args)
