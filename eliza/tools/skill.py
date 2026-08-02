@@ -94,8 +94,8 @@ def _parse_skill_md(content: str, interact: bool = False) -> tuple[str, str, str
     return name, description, instruction
 
 
-class SkillUseParams(BaseModel):
-    skill_name: str = Field(description="使用するスキルの名前")
+class LoadSkillParams(BaseModel):
+    skill_name: str = Field(description="手順書を読み込むスキルの名前")
 
 
 class Skill:
@@ -115,8 +115,14 @@ class Skill:
         """利用可能なスキル一覧を返す"""
         return _load_skills(interact=self.interact)
 
-    def skill_use(self, skill_name: str) -> dict[str, Any]:
-        """スキルの instruction を返す"""
+    def load_skill(self, skill_name: str) -> dict[str, Any]:
+        """スキルの instruction を返す
+
+        Parameters
+        ----------
+        skill_name
+            手順書を読み込むスキルの名前
+        """
         skills = _load_skills(interact=self.interact)
         for skill in skills:
             if skill.name == skill_name:
@@ -128,31 +134,32 @@ class Skill:
         return {"error": f"Skill '{skill_name}' not found"}
 
     def create_tools(self) -> list[chat_pb2.Tool]:
-        """skill_use ツールを返す"""
+        """load_skill ツールを返す"""
         skills = _load_skills(interact=self.interact)
         if not skills:
             return []
         skill_list = "\n".join(f"- {s.name}" for s in skills)
         return [
             tool(
-                name="skill_use",
+                name="load_skill",
                 description=(
-                    "特定のタスクを実行するための手順（Skill）を取得します。\n"
+                    "特定のタスクを実行するための手順（Skill）を読み込みます。\n"
+                    "これは手順書の取得だけを行うツールであり、スキルの実行ではありません。\n"
                     "以下はあなたが利用できる Skill のリストです。\n"
                     "これは tool を更に抽象化したもので、特定のタスクを実行するための手順が定義されています。\n\n"
                     f"{skill_list}\n\n"
                     "【重要】tool を直接使う前に、まずこのツールで該当する Skill がないか確認してください。\n"
-                    "Skill がある場合は必ず skill_use を呼び出して手順を取得し、その手順に従って実行してください。\n"
+                    "Skill がある場合は必ず load_skill を呼び出して手順を取得し、その手順に従って実行してください。\n"
                     "Skill を使わずに tool を直接呼び出すことは非推奨です。"
                 ),
-                parameters=SkillUseParams.model_json_schema(),
+                parameters=LoadSkillParams.model_json_schema(),
             ),
         ]
 
     def call(self, tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
         """Call a skill tool by name"""
         match tool_name:
-            case "skill_use":
-                return self.skill_use(skill_name=tool_args["skill_name"])
+            case "load_skill":
+                return self.load_skill(skill_name=tool_args["skill_name"])
             case _:
                 raise ValueError(f"Unknown tool: {tool_name}")

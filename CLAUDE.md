@@ -61,8 +61,8 @@ server.py               # FastAPI エントリポイント
 - 利用するツール一覧
 - エージェントが従うべき手順
 
-スキルを実際に使うのは `FullOperationAgent` のみ。`skill_use` ツールはスキルの手順書を
-取得するだけで、ツール操作の実行ではない（`SKILL_FETCHED_INSTRUCTION.md` で直後にモデルへ
+スキルを実際に使うのは `FullOperationAgent` のみ。`load_skill` ツールはスキルの手順書を
+読み込むだけで、ツール操作の実行ではない（`SKILL_FETCHED_INSTRUCTION.md` で直後にモデルへ
 念押しする）。
 
 ## プロンプトファイル (`eliza/prompt/`)
@@ -72,7 +72,7 @@ server.py               # FastAPI エントリポイント
 | `ELIZA.md` | system prompt (エージェントのキャラクター・基本指示) | `trivial.py`, `question.py`, `full_operation.py` |
 | `MEMORY_INSTRUCTION.md` | 直近履歴＋summary を常に system として注入する指示（全リクエストで無条件） | `eliza/memory.py` の `get_memory_context_block()` 経由で `router.py`, `trivial.py`, `question.py`, `full_operation.py` |
 | `SKILL_INSTRUCTION.md` | スキル一覧の提示方法 | `full_operation.py` |
-| `SKILL_FETCHED_INSTRUCTION.md` | skill_use 直後に「まだ実行していない」と釘を刺す | `full_operation.py` |
+| `SKILL_FETCHED_INSTRUCTION.md` | load_skill 直後に「まだ実行していない」と釘を刺す | `full_operation.py` |
 | `TOOL_LOOP_INSTRUCTION.md` | ツールループ継続・終了の判断指示 | `full_operation.py` |
 | `TRANSLATE_INSTRUCTION.md` | 翻訳専用の指示 | `translator.py` |
 
@@ -90,5 +90,5 @@ python server.py # 起動 (reload=True、ホットリロード有効)
 - `session.parse(AgentAnswer)` で structured output を生成している。API 不安定時に空レスポンスが返ることがある。
   `full_operation.py` の `_step_with_retry()` はステップ単位でリトライし（`STEP_MAX_RETRIES`）、
   `server.py` の `POST /eliza/api/chat` は意図分類〜Agent実行全体を `MAX_RETRIES=3` でリトライする。
-- `skill_use` はスキルの手順書を取得するだけで、ツール操作の実行ではない。`SKILL_FETCHED_INSTRUCTION.md` でモデルに明示している。
+- `load_skill` はスキルの手順書を読み込むだけで、ツール操作の実行ではない。`SKILL_FETCHED_INSTRUCTION.md` でモデルに明示している。
 - `TODO.md` は `.gitignore` で管理対象外。`git add TODO.md` は失敗する。

@@ -260,7 +260,7 @@ class FullOperationAgent:
                     )
 
                 skill_just_used = any(
-                    t[0]["name"] == "skill_use"
+                    t[0]["name"] == "load_skill"
                     for t in tool_history[-len(response.tool_calls) :]
                 )
                 if skill_just_used:
@@ -281,7 +281,7 @@ class FullOperationAgent:
 
         # 最終回答を structured output で生成
         logger.info(f"[REQUEST ID: {request_id}] Generating final structured answer...")
-        executed = [t[0]["name"] for t in tool_history if t[0]["name"] != "skill_use"]
+        executed = [t[0]["name"] for t in tool_history if t[0]["name"] != "load_skill"]
         if executed:
             session.append(chat.system(f"実際に実行したツール: {', '.join(executed)}"))
         else:
