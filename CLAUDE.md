@@ -83,7 +83,7 @@ lifespan で動くループ:
 
 現在のツールカテゴリ: `switchbot`, `youtube`, `browser`, `clipboard`, `memory`, `ready`
 （`ready_to_answer`: 最終回答へ進むフラグ）,
-`subagents`（他エージェント／Claude Code CLI に質問を委譲する）, `schedule`, `tenki`, `todo`, `workspace`。
+`schedule`, `todo`, `workspace`。
 スキルはツールではなく、`FullOperationAgent` が手順書全文を system に注入する。
 
 ## スキルの追加方法

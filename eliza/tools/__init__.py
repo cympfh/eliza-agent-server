@@ -10,9 +10,7 @@ from .clipboard import Clipboard
 from .memory import MemoryTool
 from .ready import ReadyToAnswer
 from .schedule import Schedule
-from .subagents import SubAgents
 from .switchbot import Switchbot
-from .tenki import Tenki
 from .todo import ToDo
 from .workspace import Workspace
 from .youtube import YouTubeSearch
@@ -45,9 +43,7 @@ def create_tools(search: bool = True) -> list[chat_pb2.Tool]:
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
     available_tools.extend(ReadyToAnswer().create_tools())
-    available_tools.extend(SubAgents().create_tools())
     available_tools.extend(Schedule().create_tools())
-    available_tools.extend(Tenki().create_tools())
     available_tools.extend(ToDo().create_tools())
     available_tools.extend(Workspace().create_tools())
     return available_tools
@@ -61,8 +57,6 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return switchbot.call(tool_name, tool_args)
         case _ if tool_name.startswith("browser_"):
             return Browser().call(tool_name, tool_args)
-        case _ if tool_name.startswith("tenki_"):
-            return Tenki().call(tool_name, tool_args)
         case _ if tool_name.startswith("youtube_"):
             return YouTubeSearch().call(tool_name, tool_args)
         case _ if tool_name.startswith("clipboard_"):
@@ -77,8 +71,6 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return ToDo().call(tool_name, tool_args)
         case _ if tool_name.startswith("workspace_"):
             return Workspace().call(tool_name, tool_args)
-        case _ if tool_name.startswith("subagents_"):
-            return SubAgents().call(tool_name, tool_args)
         case _ if (
             tool_name.startswith("x_")
             or tool_name.startswith("web_")

@@ -7,5 +7,5 @@ MODEL = "grok-4.6"
 # "xhigh" は grok-4.6 以降。現状は未使用
 LIGHT_REASONING_EFFORT = "low"  # IntentRouter, TrivialAgent, TranslatorAgent, FullOperation 最終 parse
 QUESTION_REASONING_EFFORT = "low"  # QuestionAgent
-HEAVY_REASONING_EFFORT = "medium"  # FullOperationAgent, SubAgents
+HEAVY_REASONING_EFFORT = "medium"  # FullOperationAgent
 SUMMARY_REASONING_EFFORT = "low"  # memory.generate_summary
