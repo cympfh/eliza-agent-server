@@ -28,7 +28,7 @@ class IntentResult(BaseModel):
             "Question: Web/X検索または会話履歴（conversation_summary / conversation_history）で答えられる質問。ローカルツール（スキル・スマート家電等）は不要。"
             "Translator: テキストの翻訳リクエスト（「翻訳して」「訳して」「英語で言うと」など）。"
             "FullOperation: スキル一覧に記載された機能（YouTube動画検索・再生、エアコン操作、ToDo管理など）や PC/スマートホーム操作など外部ツール実行が必要なタスク。"
-            "室内（家の中）の温度・湿度の取得（switchbot_get_room_temperature）も FullOperation。外の気温・tenki の値では代替できない。"
+            "室内（家の中）の温度・湿度の取得（switchbot_get_room_temperature）も FullOperation。外の気温では代替できない。"
             "Web 検索が追加で必要な場合も含む。"
         )
     )
@@ -79,9 +79,9 @@ class IntentRouter:
                 "web/X検索または会話履歴で回答できそうなものは Question にしてください。\n"
                 "- Translator: テキストの翻訳リクエスト（「翻訳して」「訳して」「英語で言うと」など）\n"
                 f"- FullOperation: 以下のスキル一覧に該当する操作: \n<skill_list>{skill_list}</skill_list>\n"
-                "またはツールの直接利用で解決できるタスク（PC操作、スマートホーム操作、天気取得など）\n"
+                "またはツールの直接利用で解決できるタスク（PC操作、スマートホーム操作など）\n"
                 "【重要】室内（家の中）の温度・湿度の質問（「家の中は？」「部屋の温度は？」「室内の湿度は？」など）は必ず FullOperation にしてください。"
-                "外の温湿度値・tenki・直前の会話内容から推定することは禁止です。switchbot_get_room_temperature ツールを呼ばなければ答えられません。\n"
+                "外の温湿度値・直前の会話内容から推定することは禁止です。switchbot_get_room_temperature ツールを呼ばなければ答えられません。\n"
                 "Question 同様に Web 検索、X検索を利用することもできます。"
             )
         )

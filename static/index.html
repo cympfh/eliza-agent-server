@@ -79,48 +79,6 @@
       font-size: 12px;
     }
 
-    .toggle-switch {
-      position: relative;
-      width: 42px;
-      height: 24px;
-    }
-    
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #27272a;
-      transition: .2s;
-      border-radius: 9999px;
-    }
-    
-    .toggle-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: #71717a;
-      transition: .2s;
-      border-radius: 9999px;
-    }
-    
-    input:checked + .toggle-slider {
-      background-color: #22d3ee;
-    }
-    
-    input:checked + .toggle-slider:before {
-      transform: translateX(18px);
-      background-color: white;
-    }
-
     .section-header {
       font-size: 10px;
       letter-spacing: 0.5px;
@@ -160,17 +118,6 @@
 
       <!-- Controls -->
       <div class="flex items-center gap-x-4">
-        <!-- Interact -->
-        <div class="flex items-center gap-x-2">
-          <div class="text-xs text-zinc-400">Interact</div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="interact-toggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div class="w-px h-5 bg-zinc-800"></div>
-
         <!-- QR Code -->
         <button onclick="showQRModal()"
                 class="flex items-center gap-x-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors text-zinc-400 hover:text-zinc-300"
@@ -876,16 +823,12 @@
     }
 
     async function doChat() {
-      const interact = document.getElementById('interact-toggle').checked;
-
       const payloadMessages = messages
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content }));
 
       const body = {
         messages: payloadMessages,
-        max_tool_loops: 5,
-        interact: interact,
         context: 'web'
       };
 
@@ -1031,17 +974,9 @@
       setTimeout(() => ta.focus(), 300);
     }
 
-    // Init toggles (no persistence needed)
-    function initToggles() {
-      // Default off (safe)
-      const interact = document.getElementById('interact-toggle');
-      interact.checked = false;
-    }
-
     // Main bootstrap
     function bootstrap() {
       initTailwind();
-      initToggles();
       initTextarea();
       
       loadSessions();

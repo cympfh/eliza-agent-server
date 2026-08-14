@@ -50,7 +50,6 @@ class FullOperationAgent:
     def __init__(
         self,
         api_key: str,
-        interact: bool = False,
     ):
         """ローカルツールと検索ツールを両方使えるエージェントを初期化する
 
@@ -58,13 +57,10 @@ class FullOperationAgent:
         ----------
         api_key
             xAI API キー
-        interact
-            True のとき スキルを interact モードでレンダリングする
         """
         self.api_key = api_key
         self.model = MODEL
         self.reasoning_effort = HEAVY_REASONING_EFFORT
-        self.interact = interact
 
     def _load_prompt(self, filename: str, **kwargs: Any) -> str:
         """プロンプトを読んで返す
@@ -111,7 +107,7 @@ class FullOperationAgent:
 
     def _inject_skills(self, session: Any, request_id: str) -> None:
         """スキル手順書の全文を system メッセージとして差し込む"""
-        skills = load_skills(interact=self.interact)
+        skills = load_skills()
         if skills:
             logger.info(
                 f"[REQUEST ID: {request_id}] Injecting {len(skills)} skill bodies as system message..."

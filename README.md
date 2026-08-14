@@ -40,11 +40,6 @@
 
 「前に〇〇について話したっけ？」など、過去の会話をキーワードで検索できます。
 
-### サブエージェント
-
-複雑な質問に対して Grok (reasoning モード) と Claude Code の両方に並列で聞いて、
-まとめて回答を返すことができます。
-
 ### スキル
 
 `./skill/` ディレクトリに .md ファイルを置くことで、ツールを組み合わせた手順をスキルとして定義できます。
@@ -95,17 +90,14 @@ python server.py
   "messages": [
     { "role": "user", "content": "エアコン消して" }
   ],
-  "max_tool_loops": 5,
-  "deep": false,
-  "interact": false
+  "context": "web"
 }
 ```
 
 | フィールド | デフォルト | 説明 |
 |---|---|---|
-| `max_tool_loops` | `5` | ツール呼び出しの最大ループ数 |
-| `deep` | `false` | deep_research スキルを有効にする |
-| `interact` | `false` | スキルを interact モードでレンダリングする |
+| `messages` | （必須） | 会話履歴 |
+| `context` | `vrchat` | `vrchat` / `web` / `cli` |
 
 ### POST /eliza/api/summary
 
