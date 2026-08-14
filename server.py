@@ -129,7 +129,6 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message]
-    interact: bool = False
     context: Literal["vrchat", "web", "cli"] = "vrchat"
 
 
@@ -266,7 +265,6 @@ async def post_chat(request: ChatRequest) -> ChatResponse:
                 result = await asyncio.to_thread(
                     FullOperationAgent(
                         api_key=XAI_API_KEY,
-                        interact=request.interact,
                     ).run,
                     messages=messages_dicts,
                     request_id=request_id,

@@ -32,7 +32,6 @@ server.py               # FastAPI エントリポイント
 
 リクエストフィールド:
 - `messages`: 会話履歴（サーバーはリクエスト単位では状態を持たず、毎回完全な履歴を受け取る）
-- `interact`: スキル本文を interact モードでレンダリングするか（`FullOperationAgent` のみ使用）
 - `context`: `vrchat` / `web` / `cli`。`ELIZA.md` の environment 分岐に渡す（デフォルト `vrchat`）
 
 1. `IntentRouter.classify()` が `MODEL` + `LIGHT_REASONING_EFFORT` で意図を4値分類する: `Trivial` / `Question` / `Translator` / `FullOperation`
@@ -97,7 +96,7 @@ lifespan で動くループ:
 name: aircon
 description: エアコンの操作を行う
 ---
-（手順。Jinja2 テンプレート。`interact` 変数が渡る）
+（手順。Jinja2 テンプレート）
 ```
 
 スキルファイルには以下を書く:

@@ -90,17 +90,14 @@ python server.py
   "messages": [
     { "role": "user", "content": "エアコン消して" }
   ],
-  "max_tool_loops": 5,
-  "deep": false,
-  "interact": false
+  "context": "web"
 }
 ```
 
 | フィールド | デフォルト | 説明 |
 |---|---|---|
-| `max_tool_loops` | `5` | ツール呼び出しの最大ループ数 |
-| `deep` | `false` | deep_research スキルを有効にする |
-| `interact` | `false` | スキルを interact モードでレンダリングする |
+| `messages` | （必須） | 会話履歴 |
+| `context` | `vrchat` | `vrchat` / `web` / `cli` |
 
 ### POST /eliza/api/summary
 
