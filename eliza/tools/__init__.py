@@ -9,7 +9,6 @@ from .browser import Browser
 from .clipboard import Clipboard
 from .memory import MemoryTool
 from .schedule import Schedule
-from .skill import Skill
 from .subagents import SubAgents
 from .switchbot import Switchbot
 from .tenki import Tenki
@@ -27,9 +26,7 @@ def is_server_side(tool_name: str) -> bool:
     )
 
 
-def create_tools(
-    interact: bool = False, search: bool = True
-) -> list[chat_pb2.Tool]:
+def create_tools(search: bool = True) -> list[chat_pb2.Tool]:
     """Create tools for Grok agent"""
     available_tools = (
         [tools.x_search(), tools.web_search(), tools.code_execution()] if search else []
@@ -46,7 +43,6 @@ def create_tools(
     available_tools.extend(Browser().create_tools())
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
-    available_tools.extend(Skill(interact=interact).create_tools())
     available_tools.extend(SubAgents().create_tools())
     available_tools.extend(Schedule().create_tools())
     available_tools.extend(Tenki().create_tools())
@@ -55,9 +51,7 @@ def create_tools(
     return available_tools
 
 
-def call(
-    tool_name: str, tool_args: dict, interact: bool = False
-) -> dict[str, Any] | None:
+def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
     """Call any tool by name"""
     match tool_name:
         case _ if tool_name.startswith("switchbot_"):
@@ -73,8 +67,6 @@ def call(
             return Clipboard().call(tool_name, tool_args)
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
-        case "load_skill":
-            return Skill(interact=interact).call(tool_name, tool_args)
         case _ if tool_name.startswith("schedule_"):
             return Schedule().call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):

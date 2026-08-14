@@ -1,9 +1,16 @@
 <skill_instruction>
-あなたは以下のスキルを利用できます:
+該当するスキルの手順に従い、必要なツールをこのターンで全て同時に呼べ。1つずつ呼ぶな。
+複数スキルが該当するならまとめて実行する。
 
-{{ skill_list }}
-
-ツールを実行するより前に、まず該当するスキルがないか確認してください。
-該当するスキルがある場合は、load_skill でスキルの手順書を読み込み、その手順に従ってタスクをツールに分解し実行してください。
-load_skill は手順書の読み込みだけを行うツールであり、それ自体はタスクの実行ではありません。
+{% for s in skills %}
+<skill>
+<name>{{ s.name }}</name>
+<description>
+{{ s.description }}
+</description>
+<instruction>
+{{ s.instruction }}
+</instruction>
+</skill>
+{% endfor %}
 </skill_instruction>

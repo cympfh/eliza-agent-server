@@ -7,10 +7,12 @@ from typing import Any
 from jinja2 import Template
 from pydantic import BaseModel, Field
 from xai_sdk import Client, chat
+from xai_sdk.proto import chat_pb2
 
 import eliza.memory
 import eliza.tools
-from eliza.models import HEAVY_REASONING_EFFORT, MODEL
+from eliza.models import HEAVY_REASONING_EFFORT, LIGHT_REASONING_EFFORT, MODEL
+from eliza.skills import load_skills
 
 logger = logging.getLogger(__name__)
 
@@ -106,18 +108,15 @@ class FullOperationAgent:
             )
             session.append(chat.system(memory_block))
 
-    def _inject_skill_summary(self, session: Any, request_id: str) -> None:
-        """skill summary を system メッセージとして差し込む"""
-        skills = eliza.tools.Skill(interact=self.interact).skills()
+    def _inject_skills(self, session: Any, request_id: str) -> None:
+        """スキル手順書の全文を system メッセージとして差し込む"""
+        skills = load_skills(interact=self.interact)
         if skills:
             logger.info(
-                f"[REQUEST ID: {request_id}] Injecting skill summary as system message..."
+                f"[REQUEST ID: {request_id}] Injecting {len(skills)} skill bodies as system message..."
             )
-            skill_list = "\n".join(f"- {s.name}: {s.description}" for s in skills)
             session.append(
-                chat.system(
-                    self._load_prompt("SKILL_INSTRUCTION.md", skill_list=skill_list)
-                )
+                chat.system(self._load_prompt("SKILL_INSTRUCTION.md", skills=skills))
             )
 
     def _step_with_retry(
@@ -177,7 +176,7 @@ class FullOperationAgent:
         """
         client = Client(api_key=self.api_key)
 
-        available_tools = eliza.tools.create_tools(interact=self.interact, search=True)
+        available_tools = eliza.tools.create_tools(search=True)
         logger.info(
             f"[REQUEST ID: {request_id}] Creating chat session with {len(available_tools)} tools..."
         )
@@ -205,7 +204,7 @@ class FullOperationAgent:
         if query_hint:
             session.append(chat.system(query_hint))
 
-        self._inject_skill_summary(session, request_id)
+        self._inject_skills(session, request_id)
 
         # レスポンス生成 / tool calling ループ
         tool_history: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
@@ -236,9 +235,7 @@ class FullOperationAgent:
                     if eliza.tools.is_server_side(tool_name):
                         continue
                     # Client-side tool calling
-                    result = eliza.tools.call(
-                        tool_name, tool_args, interact=self.interact
-                    )
+                    result = eliza.tools.call(tool_name, tool_args)
                     result_str = json.dumps(result, ensure_ascii=False)
                     logger.info(f"[REQUEST ID: {request_id}] Tool result: {result_str}")
                     tool_history.append(
@@ -258,16 +255,6 @@ class FullOperationAgent:
                     session.append(
                         chat.assistant(f"ここまでの仮説: {response.content}")
                     )
-
-                skill_just_used = any(
-                    t[0]["name"] == "load_skill"
-                    for t in tool_history[-len(response.tool_calls) :]
-                )
-                if skill_just_used:
-                    session.append(
-                        chat.system(self._load_prompt("SKILL_FETCHED_INSTRUCTION.md"))
-                    )
-
                 session.append(
                     chat.system(
                         self._load_prompt(
@@ -279,9 +266,13 @@ class FullOperationAgent:
             else:
                 break
 
-        # 最終回答を structured output で生成
-        logger.info(f"[REQUEST ID: {request_id}] Generating final structured answer...")
-        executed = [t[0]["name"] for t in tool_history if t[0]["name"] != "load_skill"]
+        # 最終回答を structured output で生成（reasoning は最低）
+        logger.info(
+            f"[REQUEST ID: {request_id}] Generating final structured answer "
+            f"(reasoning_effort={LIGHT_REASONING_EFFORT})..."
+        )
+        session._proto.reasoning_effort = chat_pb2.ReasoningEffort.EFFORT_LOW
+        executed = [t[0]["name"] for t in tool_history]
         if executed:
             session.append(chat.system(f"実際に実行したツール: {', '.join(executed)}"))
         else:
