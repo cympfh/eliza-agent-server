@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `skill/temperature.md`: 室内（リビング）/ 室外（ベランダ）の温湿度取得
+
 ### Removed
 - 未使用の `tools/subagents`（他エージェント委譲）と `tools/tenki`（OpenWeatherMap）を削除。天気は web_search に委譲
 
