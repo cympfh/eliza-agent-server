@@ -272,15 +272,6 @@ class FullOperationAgent:
             f"(reasoning_effort={LIGHT_REASONING_EFFORT})..."
         )
         session._proto.reasoning_effort = chat_pb2.ReasoningEffort.EFFORT_LOW
-        executed = [t[0]["name"] for t in tool_history]
-        if executed:
-            session.append(chat.system(f"実際に実行したツール: {', '.join(executed)}"))
-        else:
-            session.append(
-                chat.system(
-                    "実際にはツールを一切実行していません。実行していないことを実行したと言ってはいけません。"
-                )
-            )
         _, agent_answer = self._step_with_retry(
             lambda: session.parse(AgentAnswer), request_id, "session.parse"
         )
