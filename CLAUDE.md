@@ -18,6 +18,7 @@ eliza/
     full_operation.py   # FullOperationAgent (ツール・スキル呼び出しを行う唯一のエージェント)
   memory.py             # 会話ログの保存・要約・セッション同期
   models.py             # モデル名・reasoning effort の定数
+  skills.py             # スキル定義の読み込み（ツールではない）
   tools/                # ツール群 (各ファイルが1つのツールカテゴリ)
   prompt/               # プロンプトテンプレート (.md, Jinja2)
 skill/                  # スキル定義ファイル (.md)
@@ -46,6 +47,13 @@ server.py               # FastAPI エントリポイント
 `FullOperationAgent` (`eliza/agents/full_operation.py`) の主な定数:
 - `MAX_TOOL_LOOPS = 5`: ツールループの最大回数
 - `STEP_MAX_RETRIES = 3`: API エラー時のステップ単位リトライ回数
+- ツールループの `sample` は `HEAVY_REASONING_EFFORT`（medium）。最終 `parse` だけ `LIGHT_REASONING_EFFORT`（low）
+
+ツールループの約束:
+- スキル手順書は `eliza/skills.py` で読み、最初から全文注入する
+- 同一 `sample` で必要な `tool_calls` をまとめて出す（1ツールずつは禁止）
+- ツール実行後は次の `sample` を回し、ツールなしになったら `session.parse` で最終回答する
+- 最後の実ツールと同じターンで `ready_to_answer` が来たら、閉じの `sample` を飛ばして `parse` する
 
 `server.py` の `MAX_RETRIES = 3` はこれとは別物で、`/eliza/api/chat` 全体（意図分類〜Agent実行）のリトライ回数。
 
@@ -73,8 +81,10 @@ lifespan で動くループ:
 `is_server_side()` で判定され、client 側では `call()` しない。
 `QuestionAgent` は `xai_sdk.tools` を直接渡し、`FullOperationAgent` は `eliza.tools.create_tools(search=True)` 経由で同じ3つを載せる。
 
-現在のツールカテゴリ: `switchbot`, `youtube`, `browser`, `clipboard`, `memory`, `skill`,
+現在のツールカテゴリ: `switchbot`, `youtube`, `browser`, `clipboard`, `memory`, `ready`
+（`ready_to_answer`: 最終回答へ進むフラグ）,
 `subagents`（他エージェント／Claude Code CLI に質問を委譲する）, `schedule`, `tenki`, `todo`, `workspace`。
+スキルはツールではなく、`FullOperationAgent` が手順書全文を system に注入する。
 
 ## スキルの追加方法
 
@@ -94,9 +104,8 @@ description: エアコンの操作を行う
 - 利用するツール一覧
 - エージェントが従うべき手順
 
-スキルを実際に使うのは `FullOperationAgent` のみ。`load_skill` ツールはスキルの手順書を
-読み込むだけで、ツール操作の実行ではない（`SKILL_FETCHED_INSTRUCTION.md` で直後にモデルへ
-念押しする）。
+スキルを実際に使うのは `FullOperationAgent` のみ。`eliza/skills.py` が定義を読み、
+手順書全文を system に注入する。Router には name + description だけ渡す。
 
 ## プロンプトファイル (`eliza/prompt/`)
 
@@ -104,8 +113,7 @@ description: エアコンの操作を行う
 |---|---|---|
 | `ELIZA.md` | system prompt（キャラクター・`context` / `agent_name` 分岐） | `trivial.py`, `question.py`, `full_operation.py`。`translator.py` の chat 経路は `TrivialAgent.run()` 継承でここを使う |
 | `MEMORY_INSTRUCTION.md` | 直近履歴＋summary を常に system として注入する指示（chat 経路は無条件） | `eliza/memory.py` の `get_memory_context_block()` 経由で `router.py`, `trivial.py`, `question.py`, `full_operation.py` |
-| `SKILL_INSTRUCTION.md` | スキル一覧の提示方法 | `full_operation.py` |
-| `SKILL_FETCHED_INSTRUCTION.md` | load_skill 直後に「まだ実行していない」と釘を刺す | `full_operation.py` |
+| `SKILL_INSTRUCTION.md` | スキル手順書の全文注入 | `full_operation.py` |
 | `TOOL_LOOP_INSTRUCTION.md` | ツールループ継続・終了の判断指示 | `full_operation.py` |
 | `TRANSLATE_INSTRUCTION.md` | 翻訳専用 API の指示 | `translator.py` の `translate()`（`POST /eliza/api/translate`）のみ |
 
@@ -125,5 +133,5 @@ python server.py # 起動 (0.0.0.0:9096, reload=True、ホットリロード有�
 - `session.parse(AgentAnswer)` で structured output を生成している。API 不安定時に空レスポンスが返ることがある。
   `full_operation.py` の `_step_with_retry()` はステップ単位でリトライし（`STEP_MAX_RETRIES`）、
   `server.py` の `POST /eliza/api/chat` は意図分類〜Agent実行全体を `MAX_RETRIES=3` でリトライする。
-- `load_skill` はスキルの手順書を読み込むだけで、ツール操作の実行ではない。`SKILL_FETCHED_INSTRUCTION.md` でモデルに明示している。
+- スキル手順書は `eliza/skills.py` 経由で `FullOperationAgent` が最初から全文注入する。
 - `TODO.md` は `.gitignore` で管理対象外。`git add TODO.md` は失敗する。
