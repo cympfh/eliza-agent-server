@@ -13,14 +13,14 @@ description: 家の室内（リビング）または室外（ベランダ）の�
     - 室外（ベランダ）の温度と湿度
     - 引数なし
 - ready_to_answer
-    - 取得と同じターンで呼ぶ
+    - このターンのあとに追加のツールが不要なときだけ、実ツールと同じターンで呼ぶ
 
 ## 手順
 
 1. 室内・部屋・家の中なら `switchbot_get_room_temperature`
 2. 外・ベランダなら `switchbot_get_outside_temperature`
 3. 両方なら両方同時に呼ぶ
-4. 同じターンで `ready_to_answer` を呼ぶ
-5. 取得結果を報告して終了
+4. 温湿度を報告するだけで終わるなら、取得と同じターンで `ready_to_answer` を呼ぶ
+5. 取得結果を見てから次の操作（エアコンなど）を決めるなら、取得のターンでは `ready_to_answer` を呼ぶな
 
 一般の天気・予報は web_search。このスキルではない。
