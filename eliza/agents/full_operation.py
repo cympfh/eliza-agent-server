@@ -13,6 +13,7 @@ import eliza.memory
 import eliza.tools
 from eliza.models import HEAVY_REASONING_EFFORT, LIGHT_REASONING_EFFORT, MODEL
 from eliza.skills import load_skills
+from eliza.tools.ready import TOOL_NAME as READY_TO_ANSWER
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,7 @@ class FullOperationAgent:
                 session.sample, request_id, f"session.sample (tool loop {tool_loop})"
             )
             tool_used = False
+            ready_to_answer = False
 
             if response.tool_calls:
                 logger.info(
@@ -234,16 +236,29 @@ class FullOperationAgent:
                     )
                     if eliza.tools.is_server_side(tool_name):
                         continue
-                    # Client-side tool calling
                     result = eliza.tools.call(tool_name, tool_args)
                     result_str = json.dumps(result, ensure_ascii=False)
                     logger.info(f"[REQUEST ID: {request_id}] Tool result: {result_str}")
+                    if result:
+                        session.append(chat.tool_result(json.dumps(result)))
+                    if tool_name == READY_TO_ANSWER:
+                        ready_to_answer = True
+                        continue
                     tool_history.append(
                         ({"name": tool_name, "args": tool_args}, result)
                     )
                     if result:
                         tool_used = True
-                        session.append(chat.tool_result(json.dumps(result)))
+
+            if ready_to_answer:
+                logger.info(
+                    f"[REQUEST ID: {request_id}] ready_to_answer. Skipping extra sample, going to parse."
+                )
+                if response.content:
+                    session.append(
+                        chat.assistant(f"ここまでの仮説: {response.content}")
+                    )
+                break
 
             if tool_used:
                 remaining = MAX_TOOL_LOOPS - tool_loop

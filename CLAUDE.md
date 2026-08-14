@@ -53,6 +53,7 @@ server.py               # FastAPI エントリポイント
 - スキル手順書は `eliza/skills.py` で読み、最初から全文注入する
 - 同一 `sample` で必要な `tool_calls` をまとめて出す（1ツールずつは禁止）
 - ツール実行後は次の `sample` を回し、ツールなしになったら `session.parse` で最終回答する
+- 最後の実ツールと同じターンで `ready_to_answer` が来たら、閉じの `sample` を飛ばして `parse` する
 
 `server.py` の `MAX_RETRIES = 3` はこれとは別物で、`/eliza/api/chat` 全体（意図分類〜Agent実行）のリトライ回数。
 
@@ -80,7 +81,8 @@ lifespan で動くループ:
 `is_server_side()` で判定され、client 側では `call()` しない。
 `QuestionAgent` は `xai_sdk.tools` を直接渡し、`FullOperationAgent` は `eliza.tools.create_tools(search=True)` 経由で同じ3つを載せる。
 
-現在のツールカテゴリ: `switchbot`, `youtube`, `browser`, `clipboard`, `memory`,
+現在のツールカテゴリ: `switchbot`, `youtube`, `browser`, `clipboard`, `memory`, `ready`
+（`ready_to_answer`: 最終回答へ進むフラグ）,
 `subagents`（他エージェント／Claude Code CLI に質問を委譲する）, `schedule`, `tenki`, `todo`, `workspace`。
 スキルはツールではなく、`FullOperationAgent` が手順書全文を system に注入する。
 

@@ -8,6 +8,7 @@ from xai_sdk.proto import chat_pb2
 from .browser import Browser
 from .clipboard import Clipboard
 from .memory import MemoryTool
+from .ready import ReadyToAnswer
 from .schedule import Schedule
 from .subagents import SubAgents
 from .switchbot import Switchbot
@@ -43,6 +44,7 @@ def create_tools(search: bool = True) -> list[chat_pb2.Tool]:
     available_tools.extend(Browser().create_tools())
     available_tools.extend(Clipboard().create_tools())
     available_tools.extend(MemoryTool().create_tools())
+    available_tools.extend(ReadyToAnswer().create_tools())
     available_tools.extend(SubAgents().create_tools())
     available_tools.extend(Schedule().create_tools())
     available_tools.extend(Tenki().create_tools())
@@ -67,6 +69,8 @@ def call(tool_name: str, tool_args: dict) -> dict[str, Any] | None:
             return Clipboard().call(tool_name, tool_args)
         case _ if tool_name.startswith("memory_"):
             return MemoryTool().call(tool_name, tool_args)
+        case "ready_to_answer":
+            return ReadyToAnswer().call(tool_name, tool_args)
         case _ if tool_name.startswith("schedule_"):
             return Schedule().call(tool_name, tool_args)
         case _ if tool_name.startswith("todo_"):
