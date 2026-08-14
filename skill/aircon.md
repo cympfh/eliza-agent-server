@@ -15,6 +15,8 @@ description: エアコン (air conditioner) の操作を行う
         - `strong_cool` は強冷房モード. ユーザーが本当に暑がってる場合に使用する
 - schedule_tool_call_after_minutes
     - 指定した分数後にツールを実行するようスケジュールする
+- ready_to_answer
+    - このターンで手順を終えるとき、実ツールと同時に呼ぶ
 
 ## スキルの手順
 
@@ -30,3 +32,7 @@ description: エアコン (air conditioner) の操作を行う
     - 今すぐ switchbot_post_aircon_on を実行する
     - schedule_tool_call_after_minutes で指定時間後に switchbot_post_aircon_off を実行するようスケジュールする
     - 例:「1時間だけ冷房」→ switchbot_post_aircon_on(mode="cool") + schedule_tool_call_after_minutes(tool_name="switchbot_post_aircon_off", tool_args={}, minutes=60)
+
+手順を終えるターンでは、最後の実ツールと同時に ready_to_answer を呼ぶ。
+室温を取ってモード提案するだけのときも、取得と同じターンで ready_to_answer を呼ぶ。
+室温を見てから操作するなら、取得のターンでは呼ぶな。
