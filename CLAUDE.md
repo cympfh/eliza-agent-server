@@ -4,7 +4,7 @@
 
 FastAPI + xai_sdk (Grok) を使ったパーソナル AI アシスタントサーバー。
 `server.py` がエントリポイント。エージェントロジックは `eliza/agents/` 配下に分割。
-モデル名・ reasoning effort は `eliza/models.py` の定数（現行は全エージェント同一モデル `grok-4.5`、effort だけ用途別に変える）。
+モデル名・ reasoning effort は `eliza/models.py` の定数（現行は全エージェント同一モデル `grok-4.6`、effort だけ用途別に変える）。
 
 ## ディレクトリ構造
 
