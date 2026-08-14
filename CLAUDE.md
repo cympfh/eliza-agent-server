@@ -4,6 +4,7 @@
 
 FastAPI + xai_sdk (Grok) を使ったパーソナル AI アシスタントサーバー。
 `server.py` がエントリポイント。エージェントロジックは `eliza/agents/` 配下に分割。
+モデル名・ reasoning effort は `eliza/models.py` の定数（現行は全エージェント同一モデル `grok-4.5`、effort だけ用途別に変える）。
 
 ## ディレクトリ構造
 
@@ -13,31 +14,54 @@ eliza/
     router.py          # IntentRouter (意図分類のみ、ツール不使用)
     trivial.py          # TrivialAgent (雑談・挨拶、ツール不使用)
     question.py         # QuestionAgent (x_search/web_search/code_execution のみ)
-    translator.py       # TranslatorAgent(TrivialAgent) (翻訳専用)
+    translator.py       # TranslatorAgent(TrivialAgent) (chat は run 継承、専用 API は translate)
     full_operation.py   # FullOperationAgent (ツール・スキル呼び出しを行う唯一のエージェント)
   memory.py             # 会話ログの保存・要約・セッション同期
   models.py             # モデル名・reasoning effort の定数
   tools/                # ツール群 (各ファイルが1つのツールカテゴリ)
   prompt/               # プロンプトテンプレート (.md, Jinja2)
 skill/                  # スキル定義ファイル (.md)
+static/                 # ブラウザ向けチャット UI (GET /)
 server.py               # FastAPI エントリポイント
 ```
 
+ランタイムデータは `.memory/`（git 管理外）。メッセージ・セッションの SQLite と summary を置く。
+
 ## リクエストの流れ (`POST /eliza/api/chat`)
 
-1. `IntentRouter.classify()` が軽量モデルで意図を4値分類する: `Trivial` / `Question` / `Translator` / `FullOperation`
+リクエストフィールド:
+- `messages`: 会話履歴（サーバーはリクエスト単位では状態を持たず、毎回完全な履歴を受け取る）
+- `interact`: スキル本文を interact モードでレンダリングするか（`FullOperationAgent` のみ使用）
+- `context`: `vrchat` / `web` / `cli`。`ELIZA.md` の environment 分岐に渡す（デフォルト `vrchat`）
+
+1. `IntentRouter.classify()` が `MODEL` + `LIGHT_REASONING_EFFORT` で意図を4値分類する: `Trivial` / `Question` / `Translator` / `FullOperation`
 2. ラベルに応じて対応する Agent の `run()` に振り分ける (`server.py`)
    - `Trivial` → `TrivialAgent`: 雑談・挨拶。ツール・スキル不使用
-   - `Question` → `QuestionAgent`: サーバーサイドツール (`x_search`, `web_search`, `code_execution`) のみ使用
-   - `Translator` → `TranslatorAgent`: 翻訳専用、ツール不使用
+   - `Question` → `QuestionAgent`: サーバーサイドツール (`x_search`, `web_search`, `code_execution`) のみ使用。会話履歴（memory context）だけで答えられる質問もここ
+   - `Translator` → `TranslatorAgent.run()`: `TrivialAgent.run()` を継承。ツール不使用。`ELIZA.md` の `agent_name == "translator"` 分岐で翻訳する（`TRANSLATE_INSTRUCTION.md` は使わない）
    - それ以外 (default) → `FullOperationAgent`: クライアントサイドツール・スキルを使う唯一のエージェント
 3. 室内の温度・湿度など Switchbot 系の話題は `IntentRouter` が明示的に `FullOperation` に振る
+4. 応答後、受信メッセージ + 生成メッセージを `eliza.memory.save_messages()` で SQLite に保存する
 
 `FullOperationAgent` (`eliza/agents/full_operation.py`) の主な定数:
-- `MAX_TOOL_LOOPS`: ツールループの最大回数
-- `STEP_MAX_RETRIES`: API エラー時のステップ単位リトライ回数
+- `MAX_TOOL_LOOPS = 5`: ツールループの最大回数
+- `STEP_MAX_RETRIES = 3`: API エラー時のステップ単位リトライ回数
 
-`server.py` の `MAX_RETRIES` はこれとは別物で、`/eliza/api/chat` 全体（意図分類〜Agent実行）のリトライ回数。
+`server.py` の `MAX_RETRIES = 3` はこれとは別物で、`/eliza/api/chat` 全体（意図分類〜Agent実行）のリトライ回数。
+
+## その他の API / バックグラウンド
+
+| 経路 | 役割 |
+|---|---|
+| `GET /` | `static/index.html` のチャット UI |
+| `GET /eliza/api/health` | ヘルスチェック |
+| `POST /eliza/api/translate` | `TranslatorAgent.translate()`。`TRANSLATE_INSTRUCTION.md` を使う翻訳専用 API |
+| `POST /eliza/api/summary` | メモリ要約をバックグラウンド生成（202 即返し） |
+| `GET/PUT/DELETE /eliza/api/sessions` | Web UI セッションのサーバーサイド永続化 |
+
+lifespan で動くループ:
+- 30分ごとの auto summary（直近30分にやりとりがなければスキップ）
+- スケジュールランナー（5秒間隔で due なツール呼び出しを実行）
 
 ## ツールの追加方法
 
@@ -46,16 +70,25 @@ server.py               # FastAPI エントリポイント
 3. `eliza/tools/__init__.py` の `create_tools()` と `call()` に追記する
 
 サーバーサイドツール（xAI 側で処理される `x_search`, `web_search`, `code_execution`）は
-`is_server_side()` で判定され、client 側では `call()` しない。これらは `QuestionAgent` と
-`FullOperationAgent` から使われる。
+`is_server_side()` で判定され、client 側では `call()` しない。
+`QuestionAgent` は `xai_sdk.tools` を直接渡し、`FullOperationAgent` は `eliza.tools.create_tools(search=True)` 経由で同じ3つを載せる。
 
 現在のツールカテゴリ: `switchbot`, `youtube`, `browser`, `clipboard`, `memory`, `skill`,
 `subagents`（他エージェント／Claude Code CLI に質問を委譲する）, `schedule`, `tenki`, `todo`, `workspace`。
 
 ## スキルの追加方法
 
-`./skill/` ディレクトリに `.md` ファイルを置くだけ。
-ファイル名（拡張子なし）がスキル名になる。
+`SKILL_DIR`（デフォルト `./skill`）に `.md` ファイルを置く。
+スキル名はファイル名ではなく、YAML frontmatter の `name:`。`description:` も必須。
+どちらが欠けるとそのファイルは読み飛ばされる。
+
+```markdown
+---
+name: aircon
+description: エアコンの操作を行う
+---
+（手順。Jinja2 テンプレート。`interact` 変数が渡る）
+```
 
 スキルファイルには以下を書く:
 - 利用するツール一覧
@@ -69,12 +102,12 @@ server.py               # FastAPI エントリポイント
 
 | ファイル | 用途 | 読み込み元 |
 |---|---|---|
-| `ELIZA.md` | system prompt (エージェントのキャラクター・基本指示) | `trivial.py`, `question.py`, `full_operation.py` |
-| `MEMORY_INSTRUCTION.md` | 直近履歴＋summary を常に system として注入する指示（全リクエストで無条件） | `eliza/memory.py` の `get_memory_context_block()` 経由で `router.py`, `trivial.py`, `question.py`, `full_operation.py` |
+| `ELIZA.md` | system prompt（キャラクター・`context` / `agent_name` 分岐） | `trivial.py`, `question.py`, `full_operation.py`。`translator.py` の chat 経路は `TrivialAgent.run()` 継承でここを使う |
+| `MEMORY_INSTRUCTION.md` | 直近履歴＋summary を常に system として注入する指示（chat 経路は無条件） | `eliza/memory.py` の `get_memory_context_block()` 経由で `router.py`, `trivial.py`, `question.py`, `full_operation.py` |
 | `SKILL_INSTRUCTION.md` | スキル一覧の提示方法 | `full_operation.py` |
 | `SKILL_FETCHED_INSTRUCTION.md` | load_skill 直後に「まだ実行していない」と釘を刺す | `full_operation.py` |
 | `TOOL_LOOP_INSTRUCTION.md` | ツールループ継続・終了の判断指示 | `full_operation.py` |
-| `TRANSLATE_INSTRUCTION.md` | 翻訳専用の指示 | `translator.py` |
+| `TRANSLATE_INSTRUCTION.md` | 翻訳専用 API の指示 | `translator.py` の `translate()`（`POST /eliza/api/translate`）のみ |
 
 すべて Jinja2 テンプレートとして読み込まれる。
 
@@ -82,8 +115,10 @@ server.py               # FastAPI エントリポイント
 
 ```bash
 uv sync          # 依存インストール
-python server.py # 起動 (reload=True、ホットリロード有効)
+python server.py # 起動 (0.0.0.0:9096, reload=True、ホットリロード有効)
 ```
+
+`Makefile` の `make serve` は `uv run ./server.py`。
 
 ## 注意事項
 
