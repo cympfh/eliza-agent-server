@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- モデルを `grok-4.7` に移行し、全用途の `reasoning_effort` を `low` に揃えてレイテンシを最小化（`none` は非対応）
+- モデルを `grok-4.7` に移行（`reasoning_effort` の用途別設定は従来どおり）
 
 ### Added
 - `skill/temperature.md`: 室内（リビング）/ 室外（ベランダ）の温湿度取得

@@ -46,7 +46,7 @@ server.py               # FastAPI エントリポイント
 `FullOperationAgent` (`eliza/agents/full_operation.py`) の主な定数:
 - `MAX_TOOL_LOOPS = 5`: ツールループの最大回数
 - `STEP_MAX_RETRIES = 3`: API エラー時のステップ単位リトライ回数
-- ツールループの `sample` は `HEAVY_REASONING_EFFORT`（low）。最終 `parse` は `LIGHT_REASONING_EFFORT`（low）
+- ツールループの `sample` は `HEAVY_REASONING_EFFORT`（medium）。最終 `parse` だけ `LIGHT_REASONING_EFFORT`（low）
 
 ツールループの約束:
 - スキル手順書は `eliza/skills.py` で読み、最初から全文注入する
