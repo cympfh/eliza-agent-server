@@ -1,11 +1,11 @@
 """モデル定数の定義"""
 
-MODEL = "grok-4.6"
+MODEL = "grok-4.7"
 
 # reasoning_effort: "low" | "medium" | "high" | "xhigh"
-# grok-4.6 は reasoning を無効化できず "none" 非対応のため "low" が最小値
-# "xhigh" は grok-4.6 以降。現状は未使用
+# grok-4.7 も reasoning を無効化できず "none" 非対応のため "low" が最小値（レイテンシ最小）
+# "xhigh" は対応あり。現状は未使用
 LIGHT_REASONING_EFFORT = "low"  # IntentRouter, TrivialAgent, TranslatorAgent, FullOperation 最終 parse
 QUESTION_REASONING_EFFORT = "low"  # QuestionAgent
-HEAVY_REASONING_EFFORT = "medium"  # FullOperationAgent
+HEAVY_REASONING_EFFORT = "low"  # FullOperationAgent（レイテンシ最小のため medium から下げた）
 SUMMARY_REASONING_EFFORT = "low"  # memory.generate_summary
