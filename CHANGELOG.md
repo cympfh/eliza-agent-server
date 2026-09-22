@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- モデルを `grok-4.7` に移行し、FullOperation の `HEAVY_REASONING_EFFORT` を `xhigh` に変更
+
 ### Added
 - `skill/temperature.md`: 室内（リビング）/ 室外（ベランダ）の温湿度取得
 
